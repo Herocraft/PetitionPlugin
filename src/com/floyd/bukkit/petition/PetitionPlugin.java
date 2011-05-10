@@ -196,7 +196,6 @@ public class PetitionPlugin extends JavaPlugin {
 		}
     	
     }
-    
     private void performOpen(Player player, String[] args) {
 		Integer id = IssueUniqueTicketID();
     	String name = "(Console)";
