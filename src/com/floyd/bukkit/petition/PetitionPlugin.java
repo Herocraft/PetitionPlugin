@@ -47,6 +47,17 @@ public class PetitionPlugin extends JavaPlugin {
     String ticketFile = "last_ticket_id.txt";
     String configFile = "settings.txt";
 
+/**
+*
+*Default DB Values, can be changed in settings file.
+*/
+
+    static boolean mysql = false;    
+    static String driver = "com.mysql.jdbc.Driver";    
+    static String user = "root";    
+    static String pass = "root";    
+    static String db = "jdbc:mysql://localhost:3306/minecraft";
+
 	public static final Logger logger = Logger.getLogger("Minecraft.PetitionPlugin");
     
 //    public PetitionPlugin(PluginLoader pluginLoader, Server instance, PluginDescriptionFile desc, File folder, File plugin, ClassLoader cLoader) {
@@ -175,20 +186,20 @@ public class PetitionPlugin extends JavaPlugin {
     		PetitionObject petition = new PetitionObject(id);
     		if (petition.isValid() && (petition.isOpen() || moderator)) {
     			if (canWarpTo(player, petition)) {
-    				respond(player, "[Pe] §7" + petition.Header(getServer()) );
+    				respond(player, "[Pe] ï¿½7" + petition.Header(getServer()) );
 					if (player.teleport(petition.getLocation(getServer()))) {
-	    				respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened" );
+	    				respond(player, "[Pe] ï¿½7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened" );
 						logger.info(name + " teleported to petition " + id);
 					} else {
-	    				respond(player, "[Pe] §7Teleport failed" );
+	    				respond(player, "[Pe] ï¿½7Teleport failed" );
 						logger.info(name + " teleport to petition " + id + " FAILED");
 					}
     			} else {
     				logger.info("[Pe] Access to warp to #" + id + " denied for " + name);
-    				respond(player, "§4[Pe] Access denied.");
+    				respond(player, "ï¿½4[Pe] Access denied.");
     			}
     		} else {
-    			respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found." );
+    			respond(player, "ï¿½4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found." );
     		}
 		}
 		finally {
@@ -216,9 +227,9 @@ public class PetitionPlugin extends JavaPlugin {
     		PetitionObject petition = new PetitionObject( id, player, title );
     		releaseLock(id, player);
     		if (petition.isValid()) {
-    			respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.ID() + "§7. (Use '/petition' to manage it)");
+    			respond(player, "[Pe] ï¿½7Thank you, your ticket is ï¿½6#" + petition.ID() + "ï¿½7. (Use '/petition' to manage it)");
 				String[] except = { petition.Owner() };
-    			notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + petition.ID() + "§7 opened by " + name + ": " + title, except);
+    			notifyModerators("[Pe] ï¿½7" + settings.get("single") + " ï¿½6#" + petition.ID() + "ï¿½7 opened by " + name + ": " + title, except);
 				logger.info(name + " opened petition " + id + ". " + title);
     		} else {
-    			respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
+    			respond(player, "ï¿½4[Pe] There was an error creating your ticket, please try again later.");
