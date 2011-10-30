@@ -64,7 +64,7 @@ public class PetitionPlugin extends JavaPlugin {
 
         // EXAMPLE: Custom code, here we just output some info so we can check all is well
         PluginDescriptionFile pdfFile = this.getDescription();
-        logger.info( pdfFile.getName() + " version " + pdfFile.getVersion() + " is disabled!");
+        logger.info(pdfFile.getName() + " version " + pdfFile.getVersion() + " is disabled!");
     }
 
     public void onEnable() {
@@ -80,11 +80,11 @@ public class PetitionPlugin extends JavaPlugin {
 
         // EXAMPLE: Custom code, here we just output some info so we can check all is well
         PluginDescriptionFile pdfFile = this.getDescription();
-        logger.info( pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
+        logger.info(pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args ) {
+    public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
         String cmdname = cmd.getName().toLowerCase();
         Player player = null;
         if (sender instanceof Player) {
@@ -172,7 +172,7 @@ public class PetitionPlugin extends JavaPlugin {
             PetitionObject petition = new PetitionObject(id);
             if (petition.isValid() && (petition.isOpen() || moderator)) {
                 if (canWarpTo(player, petition)) {
-                    respond(player, "[Pe] §7" + petition.Header(getServer()) );
+                    respond(player, "[Pe] §7" + petition.Header(getServer()));
                     if (player.teleport(petition.getLocation(getServer()))) {
                         respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened");
                         logger.info(name + " teleported to petition " + id);
@@ -210,7 +210,7 @@ public class PetitionPlugin extends JavaPlugin {
             if (title.length() > 0) {
                 title = title.substring(1);
             }
-            PetitionObject petition = new PetitionObject( id, player, title );
+            PetitionObject petition = new PetitionObject(id, player, title);
             releaseLock(id, player);
             if (petition.isValid()) {
                 respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.ID() + "§7. (Use '/petition' to manage it)");
@@ -252,7 +252,7 @@ public class PetitionPlugin extends JavaPlugin {
                         message = message.substring(1);
                     }
                     // Notify
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was updated: " + message );
+                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was updated: " + message);
                     notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been updated by " + name + ".");
                     String[] except = { petition.Owner(), petition.Assignee() };
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
@@ -295,14 +295,14 @@ public class PetitionPlugin extends JavaPlugin {
                         message = message.substring(1);
                     }
                     // Notify
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was closed. " + message );
+                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was closed. " + message);
                     notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed by " + name + ".");
                     String[] except = { petition.Owner(), petition.Assignee() };
                     // Implement 'notify-all-on-close'
                     if (Boolean.parseBoolean(settings.get("single"))) {
-                        notifyAll("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed.", except );
+                        notifyAll("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed.", except);
                     } else {
-                        notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed. " + message, except );
+                        notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed. " + message, except);
                     }
                     petition.Close(player, message);
                     logger.info(name + " closed petition " + id + ". " + message);
@@ -343,10 +343,10 @@ public class PetitionPlugin extends JavaPlugin {
                         message = message.substring(1);
                     }
                     // Notify
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was reopened. " + message );
+                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was reopened. " + message);
                     notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened by " + name + ".");
                     String[] except = { petition.Owner(), petition.Assignee() };
-                    notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except );
+                    notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
                     petition.Reopen(player, message);
                     logger.info(name + " reopened "+settings.get("single").toLowerCase()+" " + id + ". " + message);
                 } else {
@@ -387,7 +387,7 @@ public class PetitionPlugin extends JavaPlugin {
                 }
                 notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been unassigned from you by " + name + ".");
                 String[] except = { petition.Owner(), petition.Assignee() };
-                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except );
+                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except);
                 logger.info(name + " unassigned petition " + id);
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
@@ -456,9 +456,9 @@ public class PetitionPlugin extends JavaPlugin {
             PetitionObject petition = new PetitionObject(id);
             if (petition.isValid()) {
                 if (petition.ownedBy(player) || moderator) {
-                    respond(player, "[Pe] §7" + petition.Header(getServer()) );
-                    for ( String line : petition.Log()) {
-                        respond(player, "[Pe] §6#" + petition.ID() + " §7" + line );
+                    respond(player, "[Pe] §7" + petition.Header(getServer()));
+                    for (String line : petition.Log()) {
+                        respond(player, "[Pe] §6#" + petition.ID() + " §7" + line);
                     }
                 } else {
                     logger.info("[Pe] Access to view #" + id + " denied for " + name);
@@ -565,7 +565,7 @@ public class PetitionPlugin extends JavaPlugin {
                     try {
                         getLock(id, player);
                         PetitionObject petition = new PetitionObject(id);
-                        if (petition.isValid() && (petition.ownedBy(player) || moderator) ) {
+                        if (petition.isValid() && (petition.ownedBy(player) || moderator)) {
                             Boolean ignore = false;
                             Player p = getServer().getPlayer(petition.Owner());
                             if (p == null && include_offline == false) {
@@ -585,7 +585,7 @@ public class PetitionPlugin extends JavaPlugin {
                             }
                             if (ignore == false) {
                                 if (count < limit) {
-                                    respond(player, "[Pe] " + petition.Header(getServer()) );
+                                    respond(player, "[Pe] " + petition.Header(getServer()));
                                     showing++;
                                 }
                                 count++;
@@ -654,14 +654,14 @@ public class PetitionPlugin extends JavaPlugin {
         if (release == false) {
             // Check for lingering lock by the same player
             if (semaphores.containsKey(id) && semaphores.get(id).equals(owner)) {
-                logger.severe("[Pe] INTERNAL ERROR! Petition #" + id + " is ALREADY locked by " + semaphores.get(id) );
+                logger.severe("[Pe] INTERNAL ERROR! Petition #" + id + " is ALREADY locked by " + semaphores.get(id));
                 logger.severe("[Pe] This was probably caused by a previous crash while accessing this petition.");
                 logger.severe("[Pe] Please report this issue to the plugin author.");
                 return true;
             }
             // Get lock
             if (semaphores.containsKey(id)) {
-                logger.warning("[Pe] Denied " + owner + " lock on #" + id + "; currently locked by " + semaphores.get(id) );
+                logger.warning("[Pe] Denied " + owner + " lock on #" + id + "; currently locked by " + semaphores.get(id));
             } else {
                 semaphores.put(id, owner);
                 return true;
@@ -683,7 +683,7 @@ public class PetitionPlugin extends JavaPlugin {
         // Read the current file (if it exists)
         try {
             BufferedReader input =  new BufferedReader(new FileReader(fname));
-            if (( line = input.readLine()) != null) {
+            if ((line = input.readLine()) != null) {
                 line = line.trim();
             }
         }
@@ -704,14 +704,14 @@ public class PetitionPlugin extends JavaPlugin {
         String newline = System.getProperty("line.separator");
            try {
                output = new BufferedWriter(new FileWriter(fname));
-               output.write( line + newline );
+               output.write(line + newline);
                output.close();
            }
            catch (Exception e) {
             e.printStackTrace();
            }
 
-        logger.fine("[Pe] Issued ticket #" + line );
+        logger.fine("[Pe] Issued ticket #" + line);
         return Integer.valueOf(line);
     }
 
@@ -733,7 +733,7 @@ public class PetitionPlugin extends JavaPlugin {
         // Read the current file (if it exists)
         try {
             BufferedReader input =  new BufferedReader(new FileReader(fname));
-            while (( line = input.readLine()) != null) {
+            while ((line = input.readLine()) != null) {
                 line = line.trim();
                 if (!line.startsWith("#") && line.contains("=")) {
                     String[] pair = line.split("=", 2);

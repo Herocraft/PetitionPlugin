@@ -26,7 +26,7 @@ public class PetitionObject {
     Boolean closed = false;
 
     // Create a new petition
-    public PetitionObject( Integer newid, Player player, String newtitle ) {
+    public PetitionObject(Integer newid, Player player, String newtitle) {
         if (player != null) {
             id = newid;
             owner = player.getName();
@@ -54,7 +54,7 @@ public class PetitionObject {
     }
 
     // Load an existing petition
-    public PetitionObject( Integer getid ) {
+    public PetitionObject(Integer getid) {
         // Look in the archive first
         String fname = archive + "/" + String.valueOf(getid) + ".ticket";
         closed = true;
@@ -67,7 +67,7 @@ public class PetitionObject {
         try {
             BufferedReader input =  new BufferedReader(new FileReader(fname));
             String line = null;
-            while (( line = input.readLine()) != null) {
+            while ((line = input.readLine()) != null) {
                 // File consists of key=value pairs, parse it 
                 String[] parts = line.split("=", 2);
                 if (parts[0].equals("id")) { id = Integer.parseInt(parts[1]); }
@@ -114,7 +114,7 @@ public class PetitionObject {
                output.write("pitch=" + String.valueOf(pitch) + "\n");
                output.write("yaw=" + String.valueOf(yaw) + "\n");
                output.write("assignee=" + assignee + "\n");
-               for ( String entry : log ) {
+               for (String entry : log) {
                  output.write("log=" + entry + "\n");
                }
                output.close();
@@ -182,7 +182,7 @@ public class PetitionObject {
         if (message.equals("")) {
             return;
         } else {
-            log.add( moderator + ": " + message);
+            log.add(moderator + ": " + message);
         }
         Save();
     }
@@ -257,7 +257,7 @@ public class PetitionObject {
         List<World> worlds = server.getWorlds();
         World normal = null;
         System.out.println("Examining worlds");
-        for (World w : worlds ) {
+        for (World w : worlds) {
             if (w.getName().equals(world)) {
                 return new Location(w, x, y, z, yaw, pitch);
             }
