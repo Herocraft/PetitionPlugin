@@ -223,8 +223,8 @@ public class PetitionPlugin extends JavaPlugin {
                 respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.ID() + "§7. (Use '/petition' to manage it)");
                 String[] except = { petition.Owner() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + petition.ID() + "§7 opened by " + name + ": " + title, except);
-                logger.info(name + " opened " + settings.get("single").toLowerCase() + id + ". " + title);
-                logAction(name + " opened " + settings.get("single").toLowerCase() + id + ". " + title);
+                logger.info(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
+                logAction(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
             } else {
                 respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
                 System.out.println("[Pe] ERROR: PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
@@ -265,8 +265,8 @@ public class PetitionPlugin extends JavaPlugin {
                     String[] except = { petition.Owner(), petition.Assignee() };
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
                     petition.Comment(player, message);
-                    logger.info(name + " commented " + settings.get("single").toLowerCase() + id + ". " + message);
-                    logAction(name + " commented " + settings.get("single").toLowerCase() + id + ". " + message);
+                    logger.info(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                    logAction(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to comment on #" + id + " denied for " + name);
                 }
@@ -314,8 +314,8 @@ public class PetitionPlugin extends JavaPlugin {
                         notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed. " + message, except);
                     }
                     petition.Close(player, message);
-                    logger.info(name + " closed " + settings.get("single").toLowerCase() + id + ". " + message);
-                    logAction(name + " closed " + settings.get("single").toLowerCase() + id + ". " + message);
+                    logger.info(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                    logAction(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to close #" + id + " denied for " + name);
                 }
@@ -358,8 +358,8 @@ public class PetitionPlugin extends JavaPlugin {
                     String[] except = { petition.Owner(), petition.Assignee() };
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
                     petition.Reopen(player, message);
-                    logger.info(name + " reopened " +settings.get("single").toLowerCase()+" " + id + ". " + message);
-                    logAction(name + " reopened " +settings.get("single").toLowerCase()+" " + id + ". " + message);
+                    logger.info(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                    logAction(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to reopen #" + id + " denied for " + name);
                 }
@@ -399,8 +399,8 @@ public class PetitionPlugin extends JavaPlugin {
                 notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been unassigned from you by " + name + ".");
                 String[] except = { petition.Owner(), petition.Assignee() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except);
-                logger.info(name + " unassigned " + settings.get("single").toLowerCase() + id);
-                logAction(name + " unassigned " + settings.get("single").toLowerCase() + id);
+                logger.info(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
+                logAction(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
             }
@@ -443,8 +443,8 @@ public class PetitionPlugin extends JavaPlugin {
                 notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to you by " + name + ".");
                 String[] except = { petition.Owner(), petition.Assignee() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to " + petition.Assignee() + ".", except);
-                logger.info(name + " assigned " + settings.get("single").toLowerCase() + id + " to " + petition.Assignee());
-                logAction(name + " assigned " + settings.get("single").toLowerCase() + id + " to " + petition.Assignee());
+                logger.info(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
+                logAction(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
             }
