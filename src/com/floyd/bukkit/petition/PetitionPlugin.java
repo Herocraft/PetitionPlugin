@@ -700,7 +700,7 @@ public class PetitionPlugin extends JavaPlugin {
         line = String.valueOf(Integer.parseInt(line) + 1);
 
         // Write the new last ticket id
-           BufferedWriter output;
+        BufferedWriter output;
         String newline = System.getProperty("line.separator");
            try {
                output = new BufferedWriter(new FileWriter(fname));
