@@ -767,7 +767,7 @@ public class PetitionPlugin extends JavaPlugin {
         logger.fine("[Pe] Logged action of #" + line);
         return;
     }
-    
+
     public String readLog() throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(fname)));
         String read = null;
