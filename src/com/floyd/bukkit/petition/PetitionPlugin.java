@@ -182,10 +182,10 @@ public class PetitionPlugin extends JavaPlugin {
                     respond(player, "[Pe] §7" + petition.Header(getServer()));
                     if (player.teleport(petition.getLocation(getServer()))) {
                         respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened");
-                        logger.info(name + " teleported to  " + settings.get("single").toLowerCase() + id);
+                        logger.info(name + " teleported to " + settings.get("single").toLowerCase() + id);
                     } else {
                         respond(player, "[Pe] §7Teleport failed");
-                        logger.info(name + " teleport to  " + settings.get("single").toLowerCase() + id + " FAILED");
+                        logger.info(name + " teleport to " + settings.get("single").toLowerCase() + id + " FAILED");
                     }
                 } else {
                     logger.info("[Pe] Access to warp to #" + id + " denied for " + name);
