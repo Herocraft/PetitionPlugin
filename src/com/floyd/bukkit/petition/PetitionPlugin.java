@@ -2,8 +2,7 @@ package com.floyd.bukkit.petition;
 
 import java.io.*;
 import java.util.Comparator;
-
-
+import java.text.SimpleDateFormat;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.command.Command;
@@ -22,6 +21,7 @@ import java.util.logging.Logger;
 import com.nijikokun.bukkit.Permissions.Permissions;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.UUID;
 import java.util.regex.*;
 
@@ -41,11 +41,16 @@ public class PetitionPlugin extends JavaPlugin {
 
     public static Permissions Permissions = null;
 
+    public String cache;
+
     String baseDir = "plugins/PetitionPlugin";
     String archiveDir = "archive";
     String mailDir = "mail";
     String ticketFile = "last_ticket_id.txt";
     String configFile = "settings.txt";
+    String logFile = "petitionlog.txt";
+    String fname = baseDir + "/" + logFile;
+    String newline = System.getProperty("line.separator");
 
     public static final Logger logger = Logger.getLogger("Minecraft.PetitionPlugin");
 
@@ -73,6 +78,7 @@ public class PetitionPlugin extends JavaPlugin {
         setupPermissions();
         loadSettings();
         startNotifier();
+        setupLog();
 
         // Register our events
         PluginManager pm = getServer().getPluginManager();
@@ -81,6 +87,7 @@ public class PetitionPlugin extends JavaPlugin {
         // EXAMPLE: Custom code, here we just output some info so we can check all is well
         PluginDescriptionFile pdfFile = this.getDescription();
         logger.info(pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
+        
     }
 
     @Override
@@ -217,6 +224,7 @@ public class PetitionPlugin extends JavaPlugin {
                 String[] except = { petition.Owner() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + petition.ID() + "§7 opened by " + name + ": " + title, except);
                 logger.info(name + " opened petition " + id + ". " + title);
+                logAction(name + " opened petition " + id + ". " + title);
             } else {
                 respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
                 System.out.println("[Pe] ERROR: PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
@@ -258,6 +266,7 @@ public class PetitionPlugin extends JavaPlugin {
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
                     petition.Comment(player, message);
                     logger.info(name + " commented petition " + id + ". " + message);
+                    logAction(name + " commented petition " + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to comment on #" + id + " denied for " + name);
                 }
@@ -306,6 +315,7 @@ public class PetitionPlugin extends JavaPlugin {
                     }
                     petition.Close(player, message);
                     logger.info(name + " closed petition " + id + ". " + message);
+                    logAction(name + " closed petition " + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to close #" + id + " denied for " + name);
                 }
@@ -349,6 +359,7 @@ public class PetitionPlugin extends JavaPlugin {
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
                     petition.Reopen(player, message);
                     logger.info(name + " reopened "+settings.get("single").toLowerCase()+" " + id + ". " + message);
+                    logAction(name + " reopened "+settings.get("single").toLowerCase()+" " + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to reopen #" + id + " denied for " + name);
                 }
@@ -389,6 +400,7 @@ public class PetitionPlugin extends JavaPlugin {
                 String[] except = { petition.Owner(), petition.Assignee() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except);
                 logger.info(name + " unassigned petition " + id);
+                logAction(name + " unassigned petition " + id);
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
             }
@@ -432,6 +444,7 @@ public class PetitionPlugin extends JavaPlugin {
                 String[] except = { petition.Owner(), petition.Assignee() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to " + petition.Assignee() + ".", except);
                 logger.info(name + " assigned petition " + id + " to " + petition.Assignee());
+                logAction(name + " assigned petition " + id + " to " + petition.Assignee());
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
             }
@@ -700,7 +713,7 @@ public class PetitionPlugin extends JavaPlugin {
         line = String.valueOf(Integer.parseInt(line) + 1);
 
         // Write the new last ticket id
-           BufferedWriter output;
+        BufferedWriter output;
         String newline = System.getProperty("line.separator");
            try {
                output = new BufferedWriter(new FileWriter(fname));
@@ -713,6 +726,58 @@ public class PetitionPlugin extends JavaPlugin {
 
         logger.fine("[Pe] Issued ticket #" + line);
         return Integer.valueOf(line);
+    }
+
+    public void setupLog() {
+        String fname = baseDir + "/" + logFile;
+
+        // Read the current file (if it exists)
+        try {
+            File f = new File(fname);
+            if (!f.exists()) {
+                f.createNewFile();
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void logAction(String line) {
+        // Timestamp events
+        Date now = new Date();
+        SimpleDateFormat format = new SimpleDateFormat("MMMM d, yyyy, H:mm");
+        String out = "[" + format.format(now) + "] " + line + newline;
+
+        try {
+            if (cache == null) {
+                cache = readLog();
+            }
+            // Newest log messages at top
+            cache = out + cache;
+
+            // Write to cache
+            BufferedWriter output = new BufferedWriter(new FileWriter(fname));
+            output.write(cache);
+            output.flush();
+            output.close();
+        } catch (IOException ioe) {
+            logger.severe("[Pe] Error writing to the log file!");
+        }
+        logger.fine("[Pe] Logged action of #" + line);
+        return;
+    }
+    
+    public String readLog() throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(fname)));
+        String read = null;
+        StringBuilder out = new StringBuilder();
+
+        // Reads the existing log
+        while ((read = reader.readLine()) != null) {
+            out.append(read).append(newline);
+        }
+        return out.toString();
     }
 
     private void loadSettings() {
@@ -814,6 +879,21 @@ public class PetitionPlugin extends JavaPlugin {
                 output.write("0" + newline);
                 output.close();
                 logger.info("[Pe] Created ticket file '" + fname + "'");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        // Ensure that logFile exists
+        fname = baseDir + "/" + logFile;
+        f = new File(fname);
+        if (!f.exists()) {
+            // Ensure that configFile exists
+            BufferedWriter output;
+            try {
+                output = new BufferedWriter(new FileWriter(fname));
+                output.write("");
+                output.close();
+                logger.info("[Pe] Created log file '" + fname + "'");
             } catch (Exception e) {
                 e.printStackTrace();
             }
