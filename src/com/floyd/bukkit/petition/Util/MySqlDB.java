@@ -17,5 +17,6 @@ public class MySqlDB {
 public PetitionPlugin plugin;
 
 public MySqlDB(PetitionPlugin instance) {
-plugin = instance;
+    plugin = instance;
+    }
 }
