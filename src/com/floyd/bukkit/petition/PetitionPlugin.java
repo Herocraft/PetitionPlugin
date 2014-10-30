@@ -5,20 +5,14 @@ import java.util.Comparator;
 import java.text.SimpleDateFormat;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.Server;
-import org.bukkit.event.Event.Priority;
-import org.bukkit.event.Event;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.PluginLoader;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
 import java.util.logging.Logger;
-
-import com.nijikokun.bukkit.Permissions.Permissions;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -32,14 +26,11 @@ import java.util.regex.*;
 */
 
 public class PetitionPlugin extends JavaPlugin {
-    private final PetitionPlayerListener playerListener = new PetitionPlayerListener(this);
     private NotifierThread notifier = null; 
 
     private final ConcurrentHashMap<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
     private final ConcurrentHashMap<Integer, String> semaphores = new ConcurrentHashMap<Integer, String>();
     public final ConcurrentHashMap<String, String> settings = new ConcurrentHashMap<String, String>();
-
-    public static Permissions Permissions = null;
 
     public String cache;
 
@@ -69,24 +60,23 @@ public class PetitionPlugin extends JavaPlugin {
 
         // EXAMPLE: Custom code, here we just output some info so we can check all is well
         PluginDescriptionFile pdfFile = this.getDescription();
-        logger.info(pdfFile.getName() + " version " + pdfFile.getVersion() + " is disabled!");
+        logger.info("[Pe] " + pdfFile.getName() + " version " + pdfFile.getVersion() + " is disabled!");
     }
 
     public void onEnable() {
         // TODO: Place any custom enable code here including the registration of any events
         preFlightCheck();
-        setupPermissions();
         loadSettings();
         startNotifier();
         setupLog();
 
         // Register our events
         PluginManager pm = getServer().getPluginManager();
-        pm.registerEvent(Event.Type.PLAYER_JOIN, playerListener, Priority.Normal, this);
+        pm.registerEvents(new PetitionPlayerListener(this), this);
 
         // EXAMPLE: Custom code, here we just output some info so we can check all is well
         PluginDescriptionFile pdfFile = this.getDescription();
-        logger.info(pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
+        logger.info("[Pe] " + pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
         
     }
 
@@ -99,7 +89,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
 
         if (cmdname.equalsIgnoreCase("pe") || cmdname.equalsIgnoreCase("petition")) {
-            if (player == null || Permissions.Security.permission(player, "petition")) {
+            if (player == null || player.hasPermission("petition.pe")) {
                 // Help
                 if (args.length == 0) {
                     performHelp(player);
@@ -125,7 +115,7 @@ public class PetitionPlugin extends JavaPlugin {
                     }
                     // Unassign
                     if (args[0].equalsIgnoreCase("unassign")) {
-                        performAssign(player, args);
+                        performUnassign(player, args);
                         return true;
                     }
                     // Close
@@ -156,9 +146,10 @@ public class PetitionPlugin extends JavaPlugin {
                 }
             } else {
                    logger.info("[Pe] Access denied for " + player.getName());
+                   player.sendMessage(ChatColor.DARK_RED + "You do not have permission to use this command");
             }
         }
-        return false;
+        return true;
     }
 
     private void performWarp(Player player, String[] args) {
@@ -171,7 +162,7 @@ public class PetitionPlugin extends JavaPlugin {
         } else {
                name = player.getName();
         }
-        if (Permissions.Security.permission(player, "petition.moderate")) {
+        if (player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         try {
@@ -238,7 +229,7 @@ public class PetitionPlugin extends JavaPlugin {
     private void performComment(Player player, String[] args) {
         Integer id = Integer.valueOf(args[1]);
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         String name = "(Console)";
@@ -282,7 +273,7 @@ public class PetitionPlugin extends JavaPlugin {
     private void performClose(Player player, String[] args) {
         Integer id = Integer.valueOf(args[1]);
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         String name = "(Console)";
@@ -331,7 +322,7 @@ public class PetitionPlugin extends JavaPlugin {
     private void performReopen(Player player, String[] args) {
         Integer id = Integer.valueOf(args[1]);
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         String name = "(Console)";
@@ -375,14 +366,14 @@ public class PetitionPlugin extends JavaPlugin {
     private void performUnassign(Player player, String[] args) {
         Integer id = Integer.valueOf(args[1]);
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         String name = "(Console)";
         if (player != null) {
             name = player.getName();
         }
-        if (moderator == false) {
+        if (!moderator) {
             logger.info("[Pe] Access to unassign #" + id + " denied for " + name);
             respond(player, "§4[Pe] Only moderators may unassign "+settings.get("plural"));
             return;
@@ -413,14 +404,14 @@ public class PetitionPlugin extends JavaPlugin {
     private void performAssign(Player player, String[] args) {
         Integer id = Integer.valueOf(args[1]);
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         String name = "(Console)";
         if (player != null) {
             name = player.getName();
         }
-        if (moderator == false) {
+        if (!moderator) {
             logger.info("[Pe] Access to assign #" + id + " denied for " + name);
             respond(player, "§4[Pe] Only moderators may assign "+settings.get("plural"));
             return;
@@ -456,7 +447,7 @@ public class PetitionPlugin extends JavaPlugin {
 
     private void performView(Player player, String[] args) {
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
         String name = "(Console)";
@@ -500,39 +491,29 @@ public class PetitionPlugin extends JavaPlugin {
             for (Integer index = 1; index < args.length; index++) {
                 if (args[index].equalsIgnoreCase("closed")) {
                     use_archive = true;
-                    continue;
-                }
-                if (args[index].equalsIgnoreCase("newest")) {
+                } else if (args[index].equalsIgnoreCase("newest")) {
                     sort_reverse = true;
-                    continue;
-                }
-                if (args[index].equalsIgnoreCase("unassigned")) {
+                } else if (args[index].equalsIgnoreCase("unassigned")) {
                     ignore_assigned = true;
-                    continue;
-                }
-                if (args[index].equalsIgnoreCase("online")) {
+                } else if (args[index].equalsIgnoreCase("online")) {
                     include_offline = false;
-                    continue;
-                }
-                if (args[index].equalsIgnoreCase("offline")) {
+                } else if (args[index].equalsIgnoreCase("offline")) {
                     include_online = false;
-                    continue;
-                }
-                if (args[index].matches("^\\d+$")) {
+                } else if (args[index].matches("^\\d+$")) {
                     limit = Integer.valueOf(args[index]);
-                    continue;
+                } else {
+                    filter = args[index];
+                    pattern = Pattern.compile(filter, Pattern.CASE_INSENSITIVE);
                 }
-                filter = args[index];
-                pattern = Pattern.compile(filter, Pattern.CASE_INSENSITIVE);
             }
         }
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
 
         File dir;
-        if (use_archive == true) {
+        if (use_archive) {
             dir = new File(baseDir + "/" + archiveDir);
         } else {
             dir = new File(baseDir);
@@ -568,9 +549,7 @@ public class PetitionPlugin extends JavaPlugin {
             filenames = reverseOrder(filenames);
         }
 
-        if (filenames == null) {
-        // Either dir does not exist or is not a directory
-        } else {
+        if (filenames != null) {
             for (String filename : filenames) {
                 if (filename.endsWith(".ticket")) {
                     String[] parts = filename.split("['.']");
@@ -581,10 +560,10 @@ public class PetitionPlugin extends JavaPlugin {
                         if (petition.isValid() && (petition.ownedBy(player) || moderator)) {
                             Boolean ignore = false;
                             Player p = getServer().getPlayer(petition.Owner());
-                            if (p == null && include_offline == false) {
+                            if (p == null && !include_offline) {
                                 ignore = true;
                             }
-                            if (p != null && include_online == false) {
+                            if (p != null && !include_online) {
                                 ignore = true;
                             }
                             if (pattern != null) {
@@ -593,10 +572,10 @@ public class PetitionPlugin extends JavaPlugin {
                                     ignore = true;
                                 }
                             }
-                            if (!petition.Assignee().matches("\\*") && ignore_assigned == true) {
+                            if (!petition.Assignee().matches("\\*") && ignore_assigned) {
                                 ignore = true;
                             }
-                            if (ignore == false) {
+                            if (!ignore) {
                                 if (count < limit) {
                                     respond(player, "[Pe] " + petition.Header(getServer()));
                                     showing++;
@@ -611,13 +590,13 @@ public class PetitionPlugin extends JavaPlugin {
                 }
             }
         }
-        respond(player, "[Pe] §7"+(use_archive?"Closed":"Open")+" " + settings.get("plural").toLowerCase() + (pattern==null?"":" matching "+filter) + ": " + count + " (Showing " + showing + ")");
+        respond(player, "[Pe] §7"+(use_archive?"Closed":"Open")+" " + settings.get("plural").toLowerCase() + (pattern==null?"":new StringBuilder(" matching ").append(filter).toString()) + ": " + count + " (Showing " + showing + ")");
     }
 
     private void performHelp(Player player) {
         String cmd = "pe";
         Boolean moderator = false;
-        if (player == null || Permissions.Security.permission(player, "petition.moderate")) {
+        if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
 
@@ -649,22 +628,8 @@ public class PetitionPlugin extends JavaPlugin {
         debugees.put(player, value);
     }
 
-    // Code from author of Permissions.jar
-    public void setupPermissions() {
-        Plugin test = this.getServer().getPluginManager().getPlugin("Permissions");
-
-        if(this.Permissions == null) {
-            if(test != null) {
-                this.Permissions = (Permissions)test;
-            } else {
-                logger.info("[Pe] Permission system not enabled. Disabling plugin.");
-                this.getServer().getPluginManager().disablePlugin(this);
-            }
-        }
-    }
-
     public synchronized boolean SetPetitionLock(Integer id, String owner, Boolean release) {
-        if (release == false) {
+        if (!release) {
             // Check for lingering lock by the same player
             if (semaphores.containsKey(id) && semaphores.get(id).equals(owner)) {
                 logger.severe("[Pe] INTERNAL ERROR! Petition #" + id + " is ALREADY locked by " + semaphores.get(id));
@@ -679,12 +644,10 @@ public class PetitionPlugin extends JavaPlugin {
                 semaphores.put(id, owner);
                 return true;
             }
-        } else {
+        } else if (semaphores.containsKey(id) && semaphores.get(id) == owner) {
             // Release lock
-            if (semaphores.containsKey(id) && semaphores.get(id) == owner) {
-                semaphores.remove(id);
-                return true;
-            }
+            semaphores.remove(id);
+            return true;
         }
         return false;
     }
@@ -699,6 +662,7 @@ public class PetitionPlugin extends JavaPlugin {
             if ((line = input.readLine()) != null) {
                 line = line.trim();
             }
+            input.close();
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -765,7 +729,6 @@ public class PetitionPlugin extends JavaPlugin {
             logger.severe("[Pe] Error writing to the log file!");
         }
         logger.fine("[Pe] Logged action of #" + line);
-        return;
     }
 
     public String readLog() throws IOException {
@@ -777,6 +740,7 @@ public class PetitionPlugin extends JavaPlugin {
         while ((read = reader.readLine()) != null) {
             out.append(read).append(newline);
         }
+        reader.close();
         return out.toString();
     }
 
@@ -808,6 +772,7 @@ public class PetitionPlugin extends JavaPlugin {
                     }
                 }
             }
+            input.close();
         }
         catch (FileNotFoundException e) {
             logger.warning("[Pe] Error reading " + e.getLocalizedMessage() + ", using defaults");
@@ -824,26 +789,20 @@ public class PetitionPlugin extends JavaPlugin {
         // Ensure that baseDir exists
         fname = baseDir;
         f = new File(fname);
-        if (!f.exists()) {
-            if (f.mkdir()) {
-                logger.info("[Pe] Created directory '" + fname + "'");
-            }
+        if (!f.exists() && f.mkdir()) {
+            logger.info("[Pe] Created directory '" + fname + "'");
         }
         // Ensure that archiveDir exists
         fname = baseDir + "/" + archiveDir;
         f = new File(fname);
-        if (!f.exists()) {
-            if (f.mkdir()) {
-                logger.info("[Pe] Created directory '" + fname + "'");
-            }
+        if (!f.exists() && f.mkdir()) {
+            logger.info("[Pe] Created directory '" + fname + "'");
         }
         // Ensure that mailDir exists
         fname = baseDir + "/" + mailDir;
         f = new File(fname);
-        if (!f.exists()) {
-            if (f.mkdir()) {
-                logger.info("[Pe] Created directory '" + fname + "'");
-            }
+        if (!f.exists() && f.mkdir()) {
+            logger.info("[Pe] Created directory '" + fname + "'");
         }
         // Ensure that configFile exists
         fname = baseDir + "/" + configFile;
@@ -936,33 +895,27 @@ public class PetitionPlugin extends JavaPlugin {
                 online = true;
             }
         }
-        if (online == false) {
+        if (!online) {
             name = name.toLowerCase();
             String fname;
             File f;
             // Ensure that player's mailDir exists
             fname = baseDir + "/" + mailDir + "/" + name;
             f = new File(fname);
-            if (!f.exists()) {
-                if (f.mkdir()) {
-                    logger.info("[Pe] Created directory '" + fname + "'");
-                }
+            if (!f.exists() && f.mkdir()) {
+                logger.info("[Pe] Created directory '" + fname + "'");
             }
             // Ensure that player's mailDir tmp exists
             fname = baseDir + "/" + mailDir + "/" + name + "/tmp";
             f = new File(fname);
-            if (!f.exists()) {
-                if (f.mkdir()) {
-                    logger.info("[Pe] Created directory '" + fname + "'");
-                }
+            if (!f.exists() && f.mkdir()) {
+                logger.info("[Pe] Created directory '" + fname + "'");
             }
             // Ensure that player's mailDir inbox exists
             fname = baseDir + "/" + mailDir + "/" + name + "/inbox";
             f = new File(fname);
-            if (!f.exists()) {
-                if (f.mkdir()) {
-                    logger.info("[Pe] Created directory '" + fname + "'");
-                }
+            if (!f.exists() && f.mkdir()) {
+                logger.info("[Pe] Created directory '" + fname + "'");
             }
             // Create a unique file in tmp
             UUID uuid = UUID.randomUUID();
@@ -986,14 +939,14 @@ public class PetitionPlugin extends JavaPlugin {
     public void notifyModerators(String message, String[] exceptlist) {
         Player[] players = getServer().getOnlinePlayers();
         for (Player player: players) {
-            if (Permissions.Security.permission(player, "petition.moderate")) {
+            if (player.hasPermission("petition.moderate")) {
                 Boolean skip = false;
                 for (String except: exceptlist) {
                     if (player.getName().toLowerCase().equals(except.toLowerCase())) {
                         skip = true;
                     }
                 }
-                if (skip == false) {
+                if (!skip) {
                     player.sendMessage(message);
                 }
             }
@@ -1009,7 +962,7 @@ public class PetitionPlugin extends JavaPlugin {
                     skip = true;
                 }
             }
-            if (skip == false) {
+            if (!skip) {
                 player.sendMessage(message);
             }
         }
@@ -1030,7 +983,7 @@ public class PetitionPlugin extends JavaPlugin {
                     messages[index] = input.readLine();
                     input.close();
                     boolean success = (new File(pname + "/" + fname)).delete();
-                    if (success == false) {
+                    if (!success) {
                         logger.warning("[Pe] Could not delete " + pname + "/" + fname);
                     }
                 }
@@ -1063,7 +1016,7 @@ public class PetitionPlugin extends JavaPlugin {
     // Check if there are situations where this player can warp
     private Boolean canWarpAtAll(Player player) {
         // Check if this limit is enabled at all
-        if (Boolean.parseBoolean(settings.get("warp-requires-permission")) == false) {
+        if (!Boolean.parseBoolean(settings.get("warp-requires-permission"))) {
             return true;
         }
         // Check who is asking
@@ -1071,13 +1024,13 @@ public class PetitionPlugin extends JavaPlugin {
             return true;    // Console
         }
         // Moderator?
-        if (Permissions.Security.permission(player, "petition.moderator")) {
+        if (player.hasPermission("petition.moderator")) {
             return true;
         }
-        if (Permissions.Security.permission(player, "petition.warp-to-own-if-assigned")) {
+        if (player.hasPermission("petition.warp-to-own-if-assigned")) {
             return true;
         }
-        if (Permissions.Security.permission(player, "petition.warp-to-own")) {
+        if (player.hasPermission("petition.warp-to-own")) {
             return true;
         }
         return false;
@@ -1091,19 +1044,19 @@ public class PetitionPlugin extends JavaPlugin {
             return true;    // Console
         }
         // Moderator?
-        if (Permissions.Security.permission(player, "petition.moderator")) {
+        if (player.hasPermission("petition.moderator")) {
             return true;
         }
         // Player owns this petition?
-        if (petition.ownedBy(player) == false) {
+        if (!petition.ownedBy(player)) {
             return false;
         }
         // Check for limitations
-        if (Boolean.parseBoolean(settings.get("warp-requires-permission")) == false) {
+        if (!Boolean.parseBoolean(settings.get("warp-requires-permission"))) {
             return true;
         }
         // Player owns this petition, is that sufficient?
-        if (Permissions.Security.permission(player, "petition.warp-to-own")) {
+        if (player.hasPermission("petition.warp-to-own")) {
             return true;
         }
         // Our last chance is that the petition has been assigned
@@ -1111,7 +1064,7 @@ public class PetitionPlugin extends JavaPlugin {
             return false;
         }
         // It has been assigned, is that sufficient?
-        if (Permissions.Security.permission(player, "petition.warp-to-own-assigned")) {
+        if (player.hasPermission("petition.warp-to-own-assigned")) {
             return true;
         }
         String[] except = { petition.Owner() };

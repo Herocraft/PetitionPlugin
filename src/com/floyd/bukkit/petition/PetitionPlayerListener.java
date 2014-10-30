@@ -1,28 +1,16 @@
 package com.floyd.bukkit.petition;
 
-import java.io.BufferedReader;
-
-import java.io.BufferedWriter;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.HashMap;
-import java.util.Date;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.*;
-import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.ItemStack;
-
-import com.nijikokun.bukkit.Permissions.Permissions;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 /**
  * Handle events for all Player related events
  * @author FloydATC
  */
 
-public class PetitionPlayerListener extends PlayerListener {
+public class PetitionPlayerListener implements Listener {
     private final PetitionPlugin plugin;
 
     public PetitionPlayerListener(PetitionPlugin instance) {
@@ -30,7 +18,7 @@ public class PetitionPlayerListener extends PlayerListener {
     }
 
     //Insert Player related code here
-    @Override
+    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
@@ -40,7 +28,7 @@ public class PetitionPlayerListener extends PlayerListener {
             for (String message : messages) {
                 player.sendMessage(message);
             }
-            player.sendMessage("[Pe] ง7Use /petition to view, comment or close");
+            player.sendMessage("[Pe] ยง7Use /petition to view, comment or close");
         }
     }
 }

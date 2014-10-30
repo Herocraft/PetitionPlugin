@@ -2,7 +2,6 @@ package com.floyd.bukkit.petition;
 
 import java.io.File;
 import java.util.HashMap;
-import java.util.regex.Matcher;
 
 import org.bukkit.entity.Player;
 
@@ -12,7 +11,6 @@ public class NotifierThread extends Thread {
     private HashMap<String, Integer> count = new HashMap<String, Integer>();
     private PetitionPlugin plugin = null;
     private String baseDir = "plugins/PetitionPlugin";
-    private Player player = null;
 
     public NotifierThread(PetitionPlugin owner) {
         plugin = owner;
@@ -22,7 +20,7 @@ public class NotifierThread extends Thread {
     public void run() {
         System.out.println("[Pe] NotifierThread started");
 
-        while (stop == false) {
+        while (!stop) {
             // Go to sleep
             try {
                 sleep(interval);
@@ -66,9 +64,9 @@ public class NotifierThread extends Thread {
                 Player p = plugin.getServer().getPlayer(name);
                 if (p != null) {
                     if (found == 1) {
-                        p.sendMessage("[Pe] ง7You have 1 open " + plugin.settings.get("single").toLowerCase() + " waiting, use '/pe list' to review");
+                        p.sendMessage("[Pe] ยง7You have 1 open " + plugin.settings.get("single").toLowerCase() + " waiting, use '/pe list' to review");
                     } else {
-                        p.sendMessage("[Pe] ง7You have " + found + " open " + plugin.settings.get("plural").toLowerCase() + " waiting, use '/pe list' to review");
+                        p.sendMessage("[Pe] ยง7You have " + found + " open " + plugin.settings.get("plural").toLowerCase() + " waiting, use '/pe list' to review");
                     }
                 }
             }
@@ -77,9 +75,9 @@ public class NotifierThread extends Thread {
             String[] except = new String[0];
             if (total > 0) {
                 if (total == 1) {
-                    plugin.notifyModerators("[Pe] ง7There is 1 open " + plugin.settings.get("single").toLowerCase() + " waiting, use '/pe list' to review", except);
+                    plugin.notifyModerators("[Pe] ยง7There is 1 open " + plugin.settings.get("single").toLowerCase() + " waiting, use '/pe list' to review", except);
                 } else {
-                    plugin.notifyModerators("[Pe] ง7There are " + total + " open " + plugin.settings.get("plural").toLowerCase() + " waiting, use '/pe list' to review", except);
+                    plugin.notifyModerators("[Pe] ยง7There are " + total + " open " + plugin.settings.get("plural").toLowerCase() + " waiting, use '/pe list' to review", except);
                 }
             }
         }

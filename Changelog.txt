@@ -1,28 +1,94 @@
-PetitionPlugin by FloydATC
+PetitionPlugin by Xemnas33
 
-v1.34 - Added option to notify all players when a petition is closed, not just the moderators.
-v1.33 - Changed onPlayerJoin() as required by build #600. Fixed deprecated call to void teleportTo().
-v1.32 - Notification thread implemented, remind users and mods at regular intervals.
-v1.31 - The list would always get reversed. Fixed.
-v1.30 - Closed petitions may be viewed and reopened. Added list filters "closed", "unassigned", "newest" plus Regular Expression matching.
-v1.28 - Non-moderators could assign/unassign their petitions. Fixed.
-v1.27 - Optional online/offline filter to /pe list implemented.
-v1.26 - Petitions are now listed in correct order. Finally.
-v1.25 - Fixed null pointer error on player join.
-v1.24 - Added optional setting to limit use of warp. Petitions are now almost listed in correct order.
-v1.23 - Fixed duplicate messages. Commands now work from the server console.
-v1.22 - Implemented a notification system for offline players, admins and operators
-v1.21 - Removed the "stupidly long constructor" as per Bukkit team recommendation
-v1.20 - Rewrote to use onCommand(), fixed /pe warp security issue + much more.
-v1.12 - Changed to use world name instead of ID
-v1.11 - Added experimental support for multiple worlds
-v1.10 - A few cosmetic fixes + petition length in header
-v1.08 - Automatically create necessary directories and files if they don't exist
-v1.07 - Improved error-checking. Players may now list/close/comment/view/warp to their own petitions.
-v1.06 - Fixed crash bug when closing without a comment. Added optional notifications on assign/unassign.
-v1.05 - Command/alias can now be configured. More colors.
-v1.04 - Fixed a few problems with notifications, added more colors.
-v1.03 - Added notifications and colors, and fixed a stupid permission bug
-v1.02 - Implemented locking and permissions
-v1.01 - Rebuild (fixed onPlayerCommand issue)
-v1.00 - Original release
+v1.5.1:
+- Unassign command now actually does what it should instead of assigning!
+- Updated event handling.
+- Fixed resource leaks.
+- Removed useless code.
+
+v1.3.4:
+- Added option to notify all players when a petition is closed.
+
+v1.3.3: 
+- Changed onPlayerJoin() as required by build #600. 
+- Fixed deprecated call to void teleportTo().
+
+v1.3.2:
+- Notification thread implemented, users and mods are reminded at regular intervals.
+
+v1.3.1: 
+- List is no longer reversed.
+
+v1.3.0:
+- Closed petitions may be viewed and reopened. 
+- Added list filters "closed", "unassigned", "newest" & regex matching.
+
+v1.2.8:
+- Non-moderators can no longer assign/unassign their petitions.
+
+v1.2.7:
+- Added Optional online/offline filter to /pe list.
+
+v1.2.6:
+- Petitions are now listed in correct order.
+
+v1.2.5:
+- Fixed NPE onPlayerJoin().
+
+v1.2.4:
+- Added optional setting to limit use of warp. 
+- Petitions are now almost listed in correct order.
+
+v1.2.3:
+- Fixed duplicate messages. 
+- Commands now work from the server console.
+
+v1.2.2:
+- Implemented a notification system for offline players, admins and ops.
+
+v1.2.1:
+- Removed the "stupidly long constructor".
+
+v1.2.0:
+- Rewrote to use onCommand().
+- Fixed /pe warp security issue.
+- And more!
+
+v1.1.2:
+- Changed to use world name instead of ID.
+
+v1.1.1:
+- Added experimental support for multiple worlds.
+
+v1.1.0:
+- A few cosmetic fixes + petition length in header.
+
+v1.0.8:
+- Automatically create necessary directories and files if they don't exist.
+
+v1.0.7:
+- Improved error-checking. 
+- Players may now list/close/comment/view/warp to their own petitions.
+
+v1.0.6:
+- Fixed crash bug when closing without a comment. 
+- Added optional notifications on assign/unassign.
+
+v1.0.5:
+- Command/alias can now be configured. More colours.
+
+v1.0.4:
+- Fixed a few problems with notifications, added more colors.
+
+v1..03:
+- Added notifications and colors.
+- Fixed a permission bug.
+
+v1.0.2:
+- Implemented locking and permissions.
+
+v1.0.1:
+- Rebuild (fixed onPlayerCommand issue).
+
+v1.0.0:
+- Original release

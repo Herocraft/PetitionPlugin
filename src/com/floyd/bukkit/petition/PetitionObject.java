@@ -95,11 +95,11 @@ public class PetitionObject {
     // Save a new or updated petition
     public void Save() {
         String fname = path + "/" + String.valueOf(id) + ".ticket";
-        if (closed == true) {
+        if (closed) {
             fname = path + "/archive/" + String.valueOf(id) + ".ticket";
         }
            BufferedWriter output;
-           if (isValid() == false) {
+           if (!isValid()) {
              return;
            }
            try {
@@ -206,9 +206,9 @@ public class PetitionObject {
 
     public String Owner(Server server) {
         if (server.getPlayer(owner) == null) {
-            return "ง4๘งf" + owner;    // Offline
+            return "ยง4ยงยงf" + owner;    // Offline
         } else {
-            return "ง2+งf" + owner;    // Online
+            return "ยง2+ยงf" + owner;    // Online
         }
     }
 
@@ -229,9 +229,9 @@ public class PetitionObject {
 
     public String Assignee(Server server) {
         if (server.getPlayer(assignee) == null) {
-            return "ง4๘งf" + assignee;        // Offline
+            return "ยง4ยงยงf" + assignee;        // Offline
         } else {
-            return "ง2+งf" + assignee;        // Online
+            return "ยง2+ยงf" + assignee;        // Online
         }
     }
 
@@ -240,7 +240,7 @@ public class PetitionObject {
     }
 
     public String Header(Server server) {
-        return "ง6#" + ID() + " " + Owner(server) + "ง7 -> " + Assignee(server) + "ง7: " + Title() + " (" + Log().length + ")";
+        return "ยง6#" + ID() + " " + Owner(server) + "ยง7 -> " + Assignee(server) + "ยง7: " + Title() + " (" + Log().length + ")";
     }
 
     public String[] Log() {
