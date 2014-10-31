@@ -5,6 +5,8 @@ import java.util.HashMap;
 
 import org.bukkit.entity.Player;
 
+import com.floyd.bukkit.petition.storage.PetitionObject;
+
 public class NotifierThread extends Thread {
     private Boolean stop = false;
     private Long interval = 300000L; // 5 minutes
@@ -34,7 +36,7 @@ public class NotifierThread extends Thread {
                 if (stop) { return; }
                 if (filename.endsWith(".ticket")) {
                     String[] parts = filename.split("['.']");
-                    Integer id = Integer.valueOf(parts[0]);
+                    Long id = Long.valueOf(parts[0]);
                     try {
                         while (!plugin.SetPetitionLock(id, "*NotifierThread*", false)) {
                             try {
@@ -43,7 +45,7 @@ public class NotifierThread extends Thread {
                             catch (InterruptedException e) {
                             }
                         }
-                        PetitionObject petition = new PetitionObject(id);
+                        PetitionObject petition = plugin.getStorage().load(id);
                         if (petition.isValid()) {
                             Integer found = count.get(petition.Owner());
                             if (found == null) { found = 0; }

@@ -12,12 +12,21 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
-import java.util.logging.Logger;
 
+import com.floyd.bukkit.petition.storage.DbStorage;
+import com.floyd.bukkit.petition.storage.PetitionLog;
+import com.floyd.bukkit.petition.storage.PetitionObject;
+import com.floyd.bukkit.petition.storage.Storage;
+import com.floyd.bukkit.petition.storage.YamlStorage;
+
+import java.util.logging.Logger;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.*;
+
+import javax.persistence.PersistenceException;
 
 /**
 * Petition plugin for Bukkit
@@ -29,10 +38,11 @@ public class PetitionPlugin extends JavaPlugin {
     private NotifierThread notifier = null; 
 
     private final ConcurrentHashMap<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
-    private final ConcurrentHashMap<Integer, String> semaphores = new ConcurrentHashMap<Integer, String>();
+    private final ConcurrentHashMap<Long, String> semaphores = new ConcurrentHashMap<Long, String>();
     public final ConcurrentHashMap<String, String> settings = new ConcurrentHashMap<String, String>();
 
     public String cache;
+    Storage storage;
 
     String baseDir = "plugins/PetitionPlugin";
     String archiveDir = "archive";
@@ -67,6 +77,7 @@ public class PetitionPlugin extends JavaPlugin {
         // TODO: Place any custom enable code here including the registration of any events
         preFlightCheck();
         loadSettings();
+        setupStorage();
         startNotifier();
         setupLog();
 
@@ -78,6 +89,15 @@ public class PetitionPlugin extends JavaPlugin {
         PluginDescriptionFile pdfFile = this.getDescription();
         logger.info("[Pe] " + pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
         
+    }
+
+    @Override
+    public List<Class<?>> getDatabaseClasses()
+    {
+        List<Class<?>> classes = super.getDatabaseClasses();
+        classes.add(PetitionObject.class);
+        classes.add(PetitionLog.class);
+        return classes;
     }
 
     @Override
@@ -153,7 +173,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performWarp(Player player, String[] args) {
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         Boolean moderator = false;
         String name = "(Console)";
         if (player == null) {
@@ -167,7 +187,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid() && (petition.isOpen() || moderator)) {
                 if (canWarpTo(player, petition)) {
                     respond(player, "[Pe] §7" + petition.Header(getServer()));
@@ -192,7 +212,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performOpen(Player player, String[] args) {
-        Integer id = IssueUniqueTicketID();
+        Long id = IssueUniqueTicketID();
         String name = "(Console)";
         if (player != null) {
             name = player.getName();
@@ -208,7 +228,7 @@ public class PetitionPlugin extends JavaPlugin {
             if (title.length() > 0) {
                 title = title.substring(1);
             }
-            PetitionObject petition = new PetitionObject(id, player, title);
+            PetitionObject petition = storage.create(id, player, title);
             releaseLock(id, player);
             if (petition.isValid()) {
                 respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.ID() + "§7. (Use '/petition' to manage it)");
@@ -227,7 +247,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performComment(Player player, String[] args) {
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         Boolean moderator = false;
         if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
@@ -238,7 +258,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid() && petition.isOpen()) {
                 if (petition.ownedBy(player) || moderator) {
                     String message = "";
@@ -255,7 +275,7 @@ public class PetitionPlugin extends JavaPlugin {
                     notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been updated by " + name + ".");
                     String[] except = { petition.Owner(), petition.Assignee() };
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
-                    petition.Comment(player, message);
+                    storage.comment(petition, player, message);
                     logger.info(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                     logAction(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
@@ -271,7 +291,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performClose(Player player, String[] args) {
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         Boolean moderator = false;
         if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
@@ -282,7 +302,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid() && petition.isOpen()) {
                 if (petition.ownedBy(player) || moderator) {
                     String message = "";
@@ -304,7 +324,7 @@ public class PetitionPlugin extends JavaPlugin {
                     } else {
                         notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed. " + message, except);
                     }
-                    petition.Close(player, message);
+                    storage.close(petition, player, message);
                     logger.info(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                     logAction(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
@@ -320,7 +340,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performReopen(Player player, String[] args) {
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         Boolean moderator = false;
         if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
@@ -331,7 +351,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid() && petition.isClosed()) {
                 if (moderator) {
                     String message = "";
@@ -348,7 +368,7 @@ public class PetitionPlugin extends JavaPlugin {
                     notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened by " + name + ".");
                     String[] except = { petition.Owner(), petition.Assignee() };
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
-                    petition.Reopen(player, message);
+                    storage.reopen(petition, player, message);
                     logger.info(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                     logAction(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
@@ -364,7 +384,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performUnassign(Player player, String[] args) {
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         Boolean moderator = false;
         if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
@@ -380,9 +400,9 @@ public class PetitionPlugin extends JavaPlugin {
         }
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid() && petition.isOpen()) {
-                petition.Unassign(player);
+                storage.unassign(petition, player);
                 // Notify
                 if (Boolean.parseBoolean(settings.get("notify-owner-on-unassign"))) {
                     notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 has been unassigned.");
@@ -402,7 +422,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performAssign(Player player, String[] args) {
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         Boolean moderator = false;
         if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
@@ -418,14 +438,14 @@ public class PetitionPlugin extends JavaPlugin {
         }
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid() && petition.isOpen()) {
                 if (args.length == 3) {
                     // Assign to named player
-                    petition.Assign(player, args[2]);
+                    storage.assign(petition, player, args[2]);
                 } else {
                     // Assign to self
-                    petition.Assign(player, name);
+                    storage.assign(petition, player, name);
                 }
                 // Notify
                 if (Boolean.parseBoolean(settings.get("notify-owner-on-assign"))) {
@@ -454,10 +474,10 @@ public class PetitionPlugin extends JavaPlugin {
         if (player != null) {
             name = player.getName();
         }
-        Integer id = Integer.valueOf(args[1]);
+        Long id = Long.valueOf(args[1]);
         try {
             getLock(id, player);
-            PetitionObject petition = new PetitionObject(id);
+            PetitionObject petition = storage.load(id);
             if (petition.isValid()) {
                 if (petition.ownedBy(player) || moderator) {
                     respond(player, "[Pe] §7" + petition.Header(getServer()));
@@ -553,10 +573,10 @@ public class PetitionPlugin extends JavaPlugin {
             for (String filename : filenames) {
                 if (filename.endsWith(".ticket")) {
                     String[] parts = filename.split("['.']");
-                    Integer id = Integer.valueOf(parts[0]);
+                    Long id = Long.valueOf(parts[0]);
                     try {
                         getLock(id, player);
-                        PetitionObject petition = new PetitionObject(id);
+                        PetitionObject petition = storage.load(id);
                         if (petition.isValid() && (petition.ownedBy(player) || moderator)) {
                             Boolean ignore = false;
                             Player p = getServer().getPlayer(petition.Owner());
@@ -628,7 +648,7 @@ public class PetitionPlugin extends JavaPlugin {
         debugees.put(player, value);
     }
 
-    public synchronized boolean SetPetitionLock(Integer id, String owner, Boolean release) {
+    public synchronized boolean SetPetitionLock(Long id, String owner, Boolean release) {
         if (!release) {
             // Check for lingering lock by the same player
             if (semaphores.containsKey(id) && semaphores.get(id).equals(owner)) {
@@ -652,7 +672,7 @@ public class PetitionPlugin extends JavaPlugin {
         return false;
     }
 
-    public synchronized Integer IssueUniqueTicketID() {
+    public synchronized Long IssueUniqueTicketID() {
         String fname = baseDir + "/" + ticketFile;
         String line = null;
 
@@ -689,7 +709,7 @@ public class PetitionPlugin extends JavaPlugin {
            }
 
         logger.fine("[Pe] Issued ticket #" + line);
-        return Integer.valueOf(line);
+        return Long.valueOf(line);
     }
 
     public void setupLog() {
@@ -759,6 +779,8 @@ public class PetitionPlugin extends JavaPlugin {
         settings.put("notify-interval-seconds", "300");
 
         settings.put("warp-requires-permission", "false");
+        
+        settings.put("storage-type", "yaml");
         // Read the current file (if it exists)
         try {
             BufferedReader input =  new BufferedReader(new FileReader(fname));
@@ -779,6 +801,24 @@ public class PetitionPlugin extends JavaPlugin {
         }
         catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void setupStorage() {
+        if ("db".equalsIgnoreCase(settings.get("storage-type"))) {
+            storage = new DbStorage(getDatabase());
+            initDb();
+        } else {
+            storage = new YamlStorage();
+        }
+    }
+
+    private void initDb() {
+        try {
+            this.getDatabase().find(PetitionObject.class).findRowCount();
+        }
+        catch (PersistenceException e) {
+            this.installDDL();
         }
     }
 
@@ -820,6 +860,7 @@ public class PetitionPlugin extends JavaPlugin {
                 output.write("notify-owner-on-unassign=true" + newline);
                 output.write("notify-interval-seconds=300" + newline);
                 output.write("warp-requires-permission=false" + newline);
+                output.write("storage-type=yaml");
                 output.close();
                 logger.info("[Pe] Created config file '" + fname + "'");
             } catch (Exception e) {
@@ -859,7 +900,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
     }
 
-    private void getLock(Integer id, Player player) {    
+    private void getLock(Long id, Player player) {    
         String name = "";
         if (player != null) {
             name = player.getName();
@@ -874,7 +915,7 @@ public class PetitionPlugin extends JavaPlugin {
         }
     }
 
-    private void releaseLock(Integer id, Player player) {
+    private void releaseLock(Long id, Player player) {
         String name = "";
         if (player != null) {
             name = player.getName();
@@ -1104,5 +1145,10 @@ public class PetitionPlugin extends JavaPlugin {
         if (notifier != null) {
             notifier.signalStop();
         }
+    }
+
+    public Storage getStorage()
+    {
+        return storage;
     }
 }

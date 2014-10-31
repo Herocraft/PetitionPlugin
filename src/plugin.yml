@@ -2,6 +2,7 @@ name: PetitionPlugin
 main: com.floyd.bukkit.petition.PetitionPlugin
 version: 1.5.1
 website: http://minecraft.atc.no/plugins
+database: true
 author: Xemnas33
 authors: [Juze]
 description: >
