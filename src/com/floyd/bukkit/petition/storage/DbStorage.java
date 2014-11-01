@@ -13,7 +13,7 @@ public class DbStorage implements Storage
     }
 
     @Override
-    public PetitionObject create(Long id, Player player, String newtitle)
+    public PetitionObject create(Player player, String newtitle)
     {
         // TODO Auto-generated method stub
         return null;

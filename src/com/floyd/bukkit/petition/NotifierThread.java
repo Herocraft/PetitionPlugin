@@ -12,7 +12,6 @@ public class NotifierThread extends Thread {
     private Long interval = 300000L; // 5 minutes
     private HashMap<String, Integer> count = new HashMap<String, Integer>();
     private PetitionPlugin plugin = null;
-    private String baseDir = "plugins/PetitionPlugin";
 
     public NotifierThread(PetitionPlugin owner) {
         plugin = owner;
@@ -31,7 +30,7 @@ public class NotifierThread extends Thread {
             }
             // Count open petitions per player
             count.clear();
-            File dir = new File(baseDir);
+            File dir = new File(PetitionPlugin.BASE_DIR);
             for (String filename : dir.list()) {
                 if (stop) { return; }
                 if (filename.endsWith(".ticket")) {
@@ -66,9 +65,9 @@ public class NotifierThread extends Thread {
                 Player p = plugin.getServer().getPlayer(name);
                 if (p != null) {
                     if (found == 1) {
-                        p.sendMessage("[Pe] §7You have 1 open " + plugin.settings.get("single").toLowerCase() + " waiting, use '/pe list' to review");
+                        p.sendMessage("[Pe] §7You have 1 open " + plugin.getSettings().get("single").toLowerCase() + " waiting, use '/pe list' to review");
                     } else {
-                        p.sendMessage("[Pe] §7You have " + found + " open " + plugin.settings.get("plural").toLowerCase() + " waiting, use '/pe list' to review");
+                        p.sendMessage("[Pe] §7You have " + found + " open " + plugin.getSettings().get("plural").toLowerCase() + " waiting, use '/pe list' to review");
                     }
                 }
             }
@@ -77,9 +76,9 @@ public class NotifierThread extends Thread {
             String[] except = new String[0];
             if (total > 0) {
                 if (total == 1) {
-                    plugin.notifyModerators("[Pe] §7There is 1 open " + plugin.settings.get("single").toLowerCase() + " waiting, use '/pe list' to review", except);
+                    plugin.notifyModerators("[Pe] §7There is 1 open " + plugin.getSettings().get("single").toLowerCase() + " waiting, use '/pe list' to review", except);
                 } else {
-                    plugin.notifyModerators("[Pe] §7There are " + total + " open " + plugin.settings.get("plural").toLowerCase() + " waiting, use '/pe list' to review", except);
+                    plugin.notifyModerators("[Pe] §7There are " + total + " open " + plugin.getSettings().get("plural").toLowerCase() + " waiting, use '/pe list' to review", except);
                 }
             }
         }

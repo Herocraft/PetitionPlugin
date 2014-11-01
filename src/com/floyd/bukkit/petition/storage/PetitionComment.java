@@ -5,16 +5,16 @@ import javax.persistence.Table;
 
 @Entity
 @Table(name = "pe_log")
-public class PetitionLog
+public class PetitionComment
 {
     private String message;
 
-    public PetitionLog()
+    public PetitionComment()
     {
         // TODO Auto-generated constructor stub
     }
 
-    public PetitionLog(String message)
+    public PetitionComment(String message)
     {
         this.message = message;
     }

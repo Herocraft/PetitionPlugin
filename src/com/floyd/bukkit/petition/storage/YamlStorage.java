@@ -9,13 +9,38 @@ import java.io.FileWriter;
 
 import org.bukkit.entity.Player;
 
+import com.floyd.bukkit.petition.PetitionPlugin;
+
 public class YamlStorage implements Storage
 {
-    private static final String PATH = "plugins/PetitionPlugin";
-    private static String ARCHIVE = "plugins/PetitionPlugin/archive";
+    private static final String TICKET_FILE = PetitionPlugin.BASE_DIR + File.separator + "last_ticket_id.txt";
+
+    public YamlStorage()
+    {
+        String fname = "";
+        File f;
+
+        // Ensure that ticketFile exists
+        fname =  TICKET_FILE;
+        f = new File(fname);
+        if (!f.exists()) {
+            // Ensure that configFile exists
+            String newline = System.getProperty("line.separator");
+            BufferedWriter output;
+            try {
+                output = new BufferedWriter(new FileWriter(fname));
+                output.write("0" + newline);
+                output.close();
+                PetitionPlugin.logger.info("[Pe] Created ticket file '" + fname + "'");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     @Override
-    public PetitionObject create(Long id, Player player, String newtitle) {
+    public PetitionObject create(Player player, String newtitle) {
+        Long id = IssueUniqueTicketID();
         PetitionObject petition = new PetitionObject(id, player, newtitle);
         save(petition);
         return petition;
@@ -28,12 +53,12 @@ public class YamlStorage implements Storage
         PetitionObject petition = new PetitionObject();
         
         // Look in the archive first
-        String fname = ARCHIVE + "/" + String.valueOf(getid) + ".ticket";
+        String fname = PetitionPlugin.ARCHIVE_DIR + File.separator + String.valueOf(getid) + ".ticket";
         petition.closed = true;
         File f = new File(fname);
         // Not found? Then check the regular ones
         if (!f.exists()) {
-            fname = PATH + "/" + String.valueOf(getid) + ".ticket";
+            fname = PetitionPlugin.BASE_DIR + File.separator + String.valueOf(getid) + ".ticket";
             petition.closed = false;
         }
         try {
@@ -52,7 +77,7 @@ public class YamlStorage implements Storage
                 if (parts[0].equals("pitch")) { petition.pitch = Float.parseFloat(parts[1]); }
                 if (parts[0].equals("yaw")) { petition.yaw = Float.parseFloat(parts[1]); }
                 if (parts[0].equals("assignee")) { petition.assignee = parts[1]; }
-                if (parts[0].equals("log")) { petition.log.add(new PetitionLog(parts[1])); }
+                if (parts[0].equals("log")) { petition.log.add(new PetitionComment(parts[1])); }
             }
             input.close();
         }
@@ -70,9 +95,9 @@ public class YamlStorage implements Storage
     @Override
     public void save(PetitionObject petition)
     {
-        String fname = PATH + "/" + String.valueOf(petition.id) + ".ticket";
+        String fname = PetitionPlugin.BASE_DIR + File.separator + String.valueOf(petition.id) + ".ticket";
         if (petition.closed) {
-            fname = PATH + "/archive/" + String.valueOf(petition.id) + ".ticket";
+            fname = PetitionPlugin.BASE_DIR + "/archive/" + String.valueOf(petition.id) + ".ticket";
         }
         BufferedWriter output;
         if (!petition.isValid()) {
@@ -90,7 +115,7 @@ public class YamlStorage implements Storage
             output.write("pitch=" + String.valueOf(petition.pitch) + "\n");
             output.write("yaw=" + String.valueOf(petition.yaw) + "\n");
             output.write("assignee=" + petition.assignee + "\n");
-            for (PetitionLog entry : petition.log) {
+            for (PetitionComment entry : petition.log) {
                 output.write("log=" + entry + "\n");
             }
             output.close();
@@ -107,7 +132,7 @@ public class YamlStorage implements Storage
         if (player != null) {
             moderator = player.getName();
         }
-        petition.log.add(new PetitionLog("Assigned to " + name + " by " + moderator));
+        petition.log.add(new PetitionComment("Assigned to " + name + " by " + moderator));
         petition.assignee = name;
         save(petition);
     }
@@ -119,7 +144,7 @@ public class YamlStorage implements Storage
         if (player != null) {
             moderator = player.getName();
         }
-        petition.log.add(new PetitionLog("Unassigned by " + moderator));
+        petition.log.add(new PetitionComment("Unassigned by " + moderator));
         petition.assignee = "*";
         save(petition);
     }
@@ -132,14 +157,14 @@ public class YamlStorage implements Storage
             moderator = player.getName();
         }
         if (message.equals("")) {
-            petition.log.add(new PetitionLog("Closed by " + moderator));
+            petition.log.add(new PetitionComment("Closed by " + moderator));
         }
         else {
-            petition.log.add(new PetitionLog("Closed by " + moderator + ": " + message));
+            petition.log.add(new PetitionComment("Closed by " + moderator + ": " + message));
         }
         save(petition);
-        File oldFile = new File(PATH + "/" + petition.id + ".ticket");
-        oldFile.renameTo(new File(ARCHIVE + "/" + petition.id + ".ticket"));
+        File oldFile = new File(PetitionPlugin.BASE_DIR + File.separator + petition.id + ".ticket");
+        oldFile.renameTo(new File(PetitionPlugin.ARCHIVE_DIR + File.separator + petition.id + ".ticket"));
     }
 
     @Override
@@ -150,14 +175,14 @@ public class YamlStorage implements Storage
             moderator = player.getName();
         }
         if (message.equals("")) {
-            petition.log.add(new PetitionLog("Reopened by " + moderator));
+            petition.log.add(new PetitionComment("Reopened by " + moderator));
         }
         else {
-            petition.log.add(new PetitionLog("Reopened by " + moderator + ": " + message));
+            petition.log.add(new PetitionComment("Reopened by " + moderator + ": " + message));
         }
         save(petition);
-        File oldFile = new File(ARCHIVE + "/" + petition.id + ".ticket");
-        oldFile.renameTo(new File(PATH + "/" + petition.id + ".ticket"));
+        File oldFile = new File(PetitionPlugin.ARCHIVE_DIR + File.separator + petition.id + ".ticket");
+        oldFile.renameTo(new File(PetitionPlugin.BASE_DIR + File.separator + petition.id + ".ticket"));
     }
 
     @Override
@@ -171,9 +196,48 @@ public class YamlStorage implements Storage
             return;
         }
         else {
-            petition.log.add(new PetitionLog(moderator + ": " + message));
+            petition.log.add(new PetitionComment(moderator + ": " + message));
         }
         save(petition);
     }
 
+    private synchronized Long IssueUniqueTicketID() {
+        String fname = TICKET_FILE;
+        String line = null;
+
+        // Read the current file (if it exists)
+        try {
+            BufferedReader input =  new BufferedReader(new FileReader(fname));
+            if ((line = input.readLine()) != null) {
+                line = line.trim();
+            }
+            input.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Unsuccessful? Assume the file is invalid or does not exist
+        if (line == null) {
+            line = "0";
+        }
+
+        // Increment the counter
+        line = String.valueOf(Integer.parseInt(line) + 1);
+
+        // Write the new last ticket id
+        BufferedWriter output;
+        String newline = System.getProperty("line.separator");
+           try {
+               output = new BufferedWriter(new FileWriter(fname));
+               output.write(line + newline);
+               output.close();
+           }
+           catch (Exception e) {
+            e.printStackTrace();
+           }
+
+        PetitionPlugin.logger.fine("[Pe] Issued ticket #" + line);
+        return Long.valueOf(line);
+    }
 }

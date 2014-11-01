@@ -29,7 +29,7 @@ public class PetitionObject {
     Float yaw = 0.0f;
     String assignee = "*";
     @OneToMany(cascade=CascadeType.ALL)
-    List<PetitionLog> log = new ArrayList<PetitionLog>();
+    List<PetitionComment> log = new ArrayList<PetitionComment>();
     Boolean closed = false;
 
     public PetitionObject()
@@ -64,6 +64,10 @@ public class PetitionObject {
         }
     }
 
+    public Long getId() {
+        return id;
+    }
+
     // Return 'true' if this is a valid petition object
     public boolean isValid() {
         return (id != 0);
@@ -83,7 +87,7 @@ public class PetitionObject {
 
     public String Owner(Server server) {
         if (server.getPlayer(owner) == null) {
-            return "§4§§f" + owner;    // Offline
+            return "§4ø§f" + owner;    // Offline
         } else {
             return "§2+§f" + owner;    // Online
         }
@@ -106,7 +110,7 @@ public class PetitionObject {
 
     public String Assignee(Server server) {
         if (server.getPlayer(assignee) == null) {
-            return "§4§§f" + assignee;        // Offline
+            return "§4ø§f" + assignee;        // Offline
         } else {
             return "§2+§f" + assignee;        // Online
         }
@@ -117,13 +121,11 @@ public class PetitionObject {
     }
 
     public String Header(Server server) {
-        return "§6#" + ID() + " " + Owner(server) + "§7 -> " + Assignee(server) + "§7: " + Title() + " (" + Log().length + ")";
+        return "§6#" + ID() + " " + Owner(server) + "§7 -> " + Assignee(server) + "§7: " + Title() + " (" + Log().size() + ")";
     }
 
-    public String[] Log() {
-        String[] lines = new String[log.size()];
-        log.toArray(lines);
-        return lines;
+    public List<PetitionComment> Log() {
+        return log;
     }
 
     public String World() {

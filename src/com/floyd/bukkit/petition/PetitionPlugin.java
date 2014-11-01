@@ -2,7 +2,6 @@ package com.floyd.bukkit.petition;
 
 import java.io.*;
 import java.util.Comparator;
-import java.text.SimpleDateFormat;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.ChatColor;
@@ -14,15 +13,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
 
 import com.floyd.bukkit.petition.storage.DbStorage;
-import com.floyd.bukkit.petition.storage.PetitionLog;
+import com.floyd.bukkit.petition.storage.PetitionComment;
 import com.floyd.bukkit.petition.storage.PetitionObject;
 import com.floyd.bukkit.petition.storage.Storage;
 import com.floyd.bukkit.petition.storage.YamlStorage;
 
 import java.util.logging.Logger;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.*;
 
@@ -37,21 +36,17 @@ import javax.persistence.PersistenceException;
 public class PetitionPlugin extends JavaPlugin {
     private NotifierThread notifier = null; 
 
-    private final ConcurrentHashMap<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
-    private final ConcurrentHashMap<Long, String> semaphores = new ConcurrentHashMap<Long, String>();
-    public final ConcurrentHashMap<String, String> settings = new ConcurrentHashMap<String, String>();
+    private final Map<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
+    private final Map<Long, String> semaphores = new ConcurrentHashMap<Long, String>();
+    private final Map<String, String> settings = new ConcurrentHashMap<String, String>();
 
-    public String cache;
     Storage storage;
+    ActionLog actionLog;
 
-    String baseDir = "plugins/PetitionPlugin";
-    String archiveDir = "archive";
-    String mailDir = "mail";
-    String ticketFile = "last_ticket_id.txt";
-    String configFile = "settings.txt";
-    String logFile = "petitionlog.txt";
-    String fname = baseDir + "/" + logFile;
-    String newline = System.getProperty("line.separator");
+    public static final String BASE_DIR = "plugins/PetitionPlugin";
+    public static final String ARCHIVE_DIR = BASE_DIR + File.separator + "archive";
+    public static final String MAIL_DIR = BASE_DIR + File.separator + "mail";
+    public static final String CONFIG_FILE = BASE_DIR + File.separator + "settings.txt";
 
     public static final Logger logger = Logger.getLogger("Minecraft.PetitionPlugin");
 
@@ -96,7 +91,7 @@ public class PetitionPlugin extends JavaPlugin {
     {
         List<Class<?>> classes = super.getDatabaseClasses();
         classes.add(PetitionObject.class);
-        classes.add(PetitionLog.class);
+        classes.add(PetitionComment.class);
         return classes;
     }
 
@@ -212,13 +207,11 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performOpen(Player player, String[] args) {
-        Long id = IssueUniqueTicketID();
         String name = "(Console)";
         if (player != null) {
             name = player.getName();
         }
         try {
-            getLock(id, player);
             String title = "";
             Integer index = 1;
             while (index < args.length) {
@@ -228,14 +221,14 @@ public class PetitionPlugin extends JavaPlugin {
             if (title.length() > 0) {
                 title = title.substring(1);
             }
-            PetitionObject petition = storage.create(id, player, title);
-            releaseLock(id, player);
+            PetitionObject petition = storage.create(player, title);
+            Long id = petition.getId();
             if (petition.isValid()) {
                 respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.ID() + "§7. (Use '/petition' to manage it)");
                 String[] except = { petition.Owner() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + petition.ID() + "§7 opened by " + name + ": " + title, except);
                 logger.info(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
-                logAction(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
+                actionLog.logAction(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
             } else {
                 respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
                 System.out.println("[Pe] ERROR: PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
@@ -277,7 +270,7 @@ public class PetitionPlugin extends JavaPlugin {
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
                     storage.comment(petition, player, message);
                     logger.info(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                    logAction(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                    actionLog.logAction(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to comment on #" + id + " denied for " + name);
                 }
@@ -326,7 +319,7 @@ public class PetitionPlugin extends JavaPlugin {
                     }
                     storage.close(petition, player, message);
                     logger.info(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                    logAction(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                    actionLog.logAction(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to close #" + id + " denied for " + name);
                 }
@@ -370,7 +363,7 @@ public class PetitionPlugin extends JavaPlugin {
                     notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
                     storage.reopen(petition, player, message);
                     logger.info(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                    logAction(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                    actionLog.logAction(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
                 } else {
                     logger.info("[Pe] Access to reopen #" + id + " denied for " + name);
                 }
@@ -411,7 +404,7 @@ public class PetitionPlugin extends JavaPlugin {
                 String[] except = { petition.Owner(), petition.Assignee() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except);
                 logger.info(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
-                logAction(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
+                actionLog.logAction(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
             }
@@ -455,7 +448,7 @@ public class PetitionPlugin extends JavaPlugin {
                 String[] except = { petition.Owner(), petition.Assignee() };
                 notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to " + petition.Assignee() + ".", except);
                 logger.info(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
-                logAction(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
+                actionLog.logAction(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
             } else {
                 respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
             }
@@ -481,7 +474,7 @@ public class PetitionPlugin extends JavaPlugin {
             if (petition.isValid()) {
                 if (petition.ownedBy(player) || moderator) {
                     respond(player, "[Pe] §7" + petition.Header(getServer()));
-                    for (String line : petition.Log()) {
+                    for (PetitionComment line : petition.Log()) {
                         respond(player, "[Pe] §6#" + petition.ID() + " §7" + line);
                     }
                 } else {
@@ -534,9 +527,9 @@ public class PetitionPlugin extends JavaPlugin {
 
         File dir;
         if (use_archive) {
-            dir = new File(baseDir + "/" + archiveDir);
+            dir = new File(ARCHIVE_DIR);
         } else {
-            dir = new File(baseDir);
+            dir = new File(BASE_DIR);
         }
         String[] filenames = dir.list();
         // Sort the filenames in numerical order
@@ -672,100 +665,11 @@ public class PetitionPlugin extends JavaPlugin {
         return false;
     }
 
-    public synchronized Long IssueUniqueTicketID() {
-        String fname = baseDir + "/" + ticketFile;
-        String line = null;
-
-        // Read the current file (if it exists)
-        try {
-            BufferedReader input =  new BufferedReader(new FileReader(fname));
-            if ((line = input.readLine()) != null) {
-                line = line.trim();
-            }
-            input.close();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Unsuccessful? Assume the file is invalid or does not exist
-        if (line == null) {
-            line = "0";
-        }
-
-        // Increment the counter
-        line = String.valueOf(Integer.parseInt(line) + 1);
-
-        // Write the new last ticket id
-        BufferedWriter output;
-        String newline = System.getProperty("line.separator");
-           try {
-               output = new BufferedWriter(new FileWriter(fname));
-               output.write(line + newline);
-               output.close();
-           }
-           catch (Exception e) {
-            e.printStackTrace();
-           }
-
-        logger.fine("[Pe] Issued ticket #" + line);
-        return Long.valueOf(line);
-    }
-
     public void setupLog() {
-        String fname = baseDir + "/" + logFile;
-
-        // Read the current file (if it exists)
-        try {
-            File f = new File(fname);
-            if (!f.exists()) {
-                f.createNewFile();
-            }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void logAction(String line) {
-        // Timestamp events
-        Date now = new Date();
-        SimpleDateFormat format = new SimpleDateFormat("MMMM d, yyyy, H:mm");
-        String out = "[" + format.format(now) + "] " + line + newline;
-
-        try {
-            if (cache == null) {
-                cache = readLog();
-            }
-            // Newest log messages at top
-            cache = out + cache;
-
-            // Write to cache
-            BufferedWriter output = new BufferedWriter(new FileWriter(fname));
-            output.write(cache);
-            output.flush();
-            output.close();
-        } catch (IOException ioe) {
-            logger.severe("[Pe] Error writing to the log file!");
-        }
-        logger.fine("[Pe] Logged action of #" + line);
-    }
-
-    public String readLog() throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(fname)));
-        String read = null;
-        StringBuilder out = new StringBuilder();
-
-        // Reads the existing log
-        while ((read = reader.readLine()) != null) {
-            out.append(read).append(newline);
-        }
-        reader.close();
-        return out.toString();
+        actionLog = new ActionLog();
     }
 
     private void loadSettings() {
-        String fname = baseDir + "/" + configFile;
         String line = null;
 
         // Load the settings hash with defaults
@@ -783,7 +687,7 @@ public class PetitionPlugin extends JavaPlugin {
         settings.put("storage-type", "yaml");
         // Read the current file (if it exists)
         try {
-            BufferedReader input =  new BufferedReader(new FileReader(fname));
+            BufferedReader input =  new BufferedReader(new FileReader(CONFIG_FILE));
             while ((line = input.readLine()) != null) {
                 line = line.trim();
                 if (!line.startsWith("#") && line.contains("=")) {
@@ -823,36 +727,31 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void preFlightCheck() {
-        String fname = "";
         File f;
 
         // Ensure that baseDir exists
-        fname = baseDir;
-        f = new File(fname);
+        f = new File(BASE_DIR);
         if (!f.exists() && f.mkdir()) {
-            logger.info("[Pe] Created directory '" + fname + "'");
+            logger.info("[Pe] Created directory '" + BASE_DIR + "'");
         }
         // Ensure that archiveDir exists
-        fname = baseDir + "/" + archiveDir;
-        f = new File(fname);
+        f = new File(ARCHIVE_DIR);
         if (!f.exists() && f.mkdir()) {
-            logger.info("[Pe] Created directory '" + fname + "'");
+            logger.info("[Pe] Created directory '" + ARCHIVE_DIR + "'");
         }
         // Ensure that mailDir exists
-        fname = baseDir + "/" + mailDir;
-        f = new File(fname);
+        f = new File(MAIL_DIR);
         if (!f.exists() && f.mkdir()) {
-            logger.info("[Pe] Created directory '" + fname + "'");
+            logger.info("[Pe] Created directory '" + MAIL_DIR + "'");
         }
         // Ensure that configFile exists
-        fname = baseDir + "/" + configFile;
-        f = new File(fname);
+        f = new File(CONFIG_FILE);
         if (!f.exists()) {
             // Ensure that configFile exists
             BufferedWriter output;
             String newline = System.getProperty("line.separator");
             try {
-                output = new BufferedWriter(new FileWriter(fname));
+                output = new BufferedWriter(new FileWriter(CONFIG_FILE));
                 output.write("single=Petition" + newline);
                 output.write("plural=Petitions" + newline);
                 output.write("notify-all-on-close=false" + newline);
@@ -862,38 +761,7 @@ public class PetitionPlugin extends JavaPlugin {
                 output.write("warp-requires-permission=false" + newline);
                 output.write("storage-type=yaml");
                 output.close();
-                logger.info("[Pe] Created config file '" + fname + "'");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        // Ensure that ticketFile exists
-        fname = baseDir + "/" + ticketFile;
-        f = new File(fname);
-        if (!f.exists()) {
-            // Ensure that configFile exists
-            String newline = System.getProperty("line.separator");
-            BufferedWriter output;
-            try {
-                output = new BufferedWriter(new FileWriter(fname));
-                output.write("0" + newline);
-                output.close();
-                logger.info("[Pe] Created ticket file '" + fname + "'");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        // Ensure that logFile exists
-        fname = baseDir + "/" + logFile;
-        f = new File(fname);
-        if (!f.exists()) {
-            // Ensure that configFile exists
-            BufferedWriter output;
-            try {
-                output = new BufferedWriter(new FileWriter(fname));
-                output.write("");
-                output.close();
-                logger.info("[Pe] Created log file '" + fname + "'");
+                logger.info("[Pe] Created config file '" + CONFIG_FILE + "'");
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -941,27 +809,27 @@ public class PetitionPlugin extends JavaPlugin {
             String fname;
             File f;
             // Ensure that player's mailDir exists
-            fname = baseDir + "/" + mailDir + "/" + name;
+            fname = MAIL_DIR + File.separator + name;
             f = new File(fname);
             if (!f.exists() && f.mkdir()) {
                 logger.info("[Pe] Created directory '" + fname + "'");
             }
             // Ensure that player's mailDir tmp exists
-            fname = baseDir + "/" + mailDir + "/" + name + "/tmp";
+            fname = MAIL_DIR + File.separator + name + "/tmp";
             f = new File(fname);
             if (!f.exists() && f.mkdir()) {
                 logger.info("[Pe] Created directory '" + fname + "'");
             }
             // Ensure that player's mailDir inbox exists
-            fname = baseDir + "/" + mailDir + "/" + name + "/inbox";
+            fname = MAIL_DIR + File.separator + name + "/inbox";
             f = new File(fname);
             if (!f.exists() && f.mkdir()) {
                 logger.info("[Pe] Created directory '" + fname + "'");
             }
             // Create a unique file in tmp
             UUID uuid = UUID.randomUUID();
-            fname = baseDir + "/" + mailDir + "/" + name + "/tmp/" + uuid;
-            String fname_final = baseDir + "/" + mailDir + "/" + name + "/inbox/" + uuid;
+            fname = MAIL_DIR + File.separator + name + "/tmp/" + uuid;
+            String fname_final = MAIL_DIR + File.separator + name + "/inbox/" + uuid;
             BufferedWriter output;
             String newline = System.getProperty("line.separator");
             try {
@@ -1012,7 +880,7 @@ public class PetitionPlugin extends JavaPlugin {
     public String[] getMessages(Player player) {
         String[] messages = new String[0];
         String name = player.getName().toLowerCase();
-        String pname = baseDir + "/" + mailDir + "/" + name + "/inbox";
+        String pname = MAIL_DIR + File.separator + name + "/inbox";
         File dir = new File(pname);
         String[] filenames = dir.list();
         if (filenames != null) {
@@ -1020,12 +888,12 @@ public class PetitionPlugin extends JavaPlugin {
             Integer index = 0;
             for (String fname : filenames) {
                 try {
-                    BufferedReader input =  new BufferedReader(new FileReader(pname + "/" + fname));
+                    BufferedReader input =  new BufferedReader(new FileReader(pname + File.separator + fname));
                     messages[index] = input.readLine();
                     input.close();
-                    boolean success = (new File(pname + "/" + fname)).delete();
+                    boolean success = (new File(pname + File.separator + fname)).delete();
                     if (!success) {
-                        logger.warning("[Pe] Could not delete " + pname + "/" + fname);
+                        logger.warning("[Pe] Could not delete " + pname + File.separator + fname);
                     }
                 }
                 catch (FileNotFoundException e) {
@@ -1147,8 +1015,11 @@ public class PetitionPlugin extends JavaPlugin {
         }
     }
 
-    public Storage getStorage()
-    {
+    public Storage getStorage() {
         return storage;
+    }
+
+    public Map<String, String> getSettings() {
+        return settings;
     }
 }
