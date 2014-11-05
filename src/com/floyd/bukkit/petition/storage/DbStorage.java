@@ -1,5 +1,7 @@
 package com.floyd.bukkit.petition.storage;
 
+import java.util.List;
+
 import org.bukkit.entity.Player;
 
 import com.avaje.ebean.EbeanServer;
@@ -27,10 +29,10 @@ public class DbStorage implements Storage
     }
 
     @Override
-    public void save(PetitionObject petition)
+    public List<PetitionObject> list(boolean isArchived, String filter)
     {
         // TODO Auto-generated method stub
-
+        return null;
     }
 
     @Override

@@ -1,12 +1,14 @@
 package com.floyd.bukkit.petition.storage;
 
+import java.util.List;
+
 import org.bukkit.entity.Player;
 
 public interface Storage
 {
     PetitionObject create(Player player, String newtitle);
     PetitionObject load(Long petitionId);
-    void save(PetitionObject petition);
+    List<PetitionObject> list(boolean isArchived, String filter);
     void assign(PetitionObject petition, Player player, String name);
     void unassign(PetitionObject petition, Player player);
     void close(PetitionObject petition, Player player, String message);

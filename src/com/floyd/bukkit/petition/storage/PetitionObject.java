@@ -1,6 +1,7 @@
 package com.floyd.bukkit.petition.storage;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.persistence.CascadeType;
@@ -8,9 +9,10 @@ import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
+import javax.persistence.Version;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
@@ -19,6 +21,8 @@ import org.bukkit.entity.Player;
 public class PetitionObject {
     @Id
     Long id = 0L;
+    @Version
+    Date timestamp;
     String owner = "";
     String title = "";
     String world = "";
@@ -30,7 +34,7 @@ public class PetitionObject {
     String assignee = "*";
     @OneToMany(cascade=CascadeType.ALL)
     List<PetitionComment> log = new ArrayList<PetitionComment>();
-    Boolean closed = false;
+    boolean closed = false;
 
     public PetitionObject()
     {
@@ -41,6 +45,7 @@ public class PetitionObject {
     public PetitionObject(Long newid, Player player, String newtitle) {
         if (player != null) {
             id = newid;
+            timestamp = new Date();
             owner = player.getName();
             title = newtitle;
             world = player.getLocation().getWorld().getName();
@@ -52,6 +57,7 @@ public class PetitionObject {
             closed = false;
         } else { 
             id = newid;
+            timestamp = new Date();
             owner = "(Console)";
             title = newtitle;
             world = "";
@@ -68,72 +74,76 @@ public class PetitionObject {
         return id;
     }
 
-    // Return 'true' if this is a valid petition object
-    public boolean isValid() {
-        return (id != 0);
+    public Date getTimestamp()
+    {
+        return timestamp;
     }
 
-    public Boolean isOpen() {
+    public void setTimestamp(Date timestamp)
+    {
+        this.timestamp = timestamp;
+    }
+
+    // Return 'true' if this is a valid petition object
+    public boolean isValid() {
+        return (id != null && id != 0);
+    }
+
+    public boolean isNotValid() {
+        return !isValid();
+    }
+
+    public boolean isOpen() {
         return !closed;
     }
 
-    public Boolean isClosed() {
+    public boolean isClosed() {
         return closed;
     }
 
-    public String Owner() {
+    public boolean isAssigned()
+    {
+        return assignee != null;
+    }
+
+    public String getOwner() {
         return owner;
     }
 
-    public String Owner(Server server) {
-        if (server.getPlayer(owner) == null) {
-            return "§4ø§f" + owner;    // Offline
-        } else {
-            return "§2+§f" + owner;    // Online
-        }
+    private String getFormattedOwner() {
+        return Bukkit.getPlayer(owner) != null ? "§2+§f" + owner : "§4ø§f" + owner;
     }
 
-    public Boolean ownedBy(Player player) {
-        if (player == null) {
-            return false;
-        }
-        return (Owner().equalsIgnoreCase(player.getName()));
+    public boolean isOwner(Player player) {
+        return player != null && getOwner().equalsIgnoreCase(player.getName());
     }
 
-    public String Title() {
+    public String getTitle() {
         return title;
     }
 
-    public String Assignee() {
+    public String getAssignee() {
         return assignee;
     }
 
-    public String Assignee(Server server) {
-        if (server.getPlayer(assignee) == null) {
-            return "§4ø§f" + assignee;        // Offline
-        } else {
-            return "§2+§f" + assignee;        // Online
-        }
+    private String getFormattedAssignee() {
+        return Bukkit.getPlayer(assignee) != null ? "§2+§f" + assignee : "§4ø§f" + assignee;
     }
 
-    public String ID() {
-        return String.valueOf(id);
+    public String getHeader() {
+        return "§6#" + getId() + " " + getFormattedOwner() + "§7 -> " + getFormattedAssignee() + "§7: " + getTitle() + " (" + getLog().size() + ")";
     }
 
-    public String Header(Server server) {
-        return "§6#" + ID() + " " + Owner(server) + "§7 -> " + Assignee(server) + "§7: " + Title() + " (" + Log().size() + ")";
-    }
-
-    public List<PetitionComment> Log() {
+    public List<PetitionComment> getLog() {
         return log;
     }
 
-    public String World() {
+    public String getWorld() {
         return world;    // World name
     }
 
-    public Location getLocation(Server server) {
-        List<World> worlds = server.getWorlds();
+    public Location getLocation() {
+        List<World> worlds = Bukkit.getWorlds();
         World normal = null;
         System.out.println("Examining worlds");
         for (World w : worlds) {

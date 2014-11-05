@@ -1,31 +1,39 @@
 package com.floyd.bukkit.petition;
 
-import java.io.*;
-import java.util.Comparator;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.persistence.PersistenceException;
+
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import com.floyd.bukkit.petition.storage.DbStorage;
 import com.floyd.bukkit.petition.storage.PetitionComment;
 import com.floyd.bukkit.petition.storage.PetitionObject;
 import com.floyd.bukkit.petition.storage.Storage;
-import com.floyd.bukkit.petition.storage.YamlStorage;
-
-import java.util.logging.Logger;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.regex.*;
-
-import javax.persistence.PersistenceException;
+import com.floyd.bukkit.petition.storage.TextStorage;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 /**
 * Petition plugin for Bukkit
@@ -34,10 +42,9 @@ import javax.persistence.PersistenceException;
 */
 
 public class PetitionPlugin extends JavaPlugin {
-    private NotifierThread notifier = null; 
+    private BukkitTask task;
 
     private final Map<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
-    private final Map<Long, String> semaphores = new ConcurrentHashMap<Long, String>();
     private final Map<String, String> settings = new ConcurrentHashMap<String, String>();
 
     Storage storage;
@@ -49,6 +56,9 @@ public class PetitionPlugin extends JavaPlugin {
     public static final String CONFIG_FILE = BASE_DIR + File.separator + "settings.txt";
 
     public static final Logger logger = Logger.getLogger("Minecraft.PetitionPlugin");
+
+    private static final String CONSOLE_NAME = "(Console)";
+    private static final int TPS = 20;
 
 //    public PetitionPlugin(PluginLoader pluginLoader, Server instance, PluginDescriptionFile desc, File folder, File plugin, ClassLoader cLoader) {
 //        super(pluginLoader, instance, desc, folder, plugin, cLoader);
@@ -77,7 +87,7 @@ public class PetitionPlugin extends JavaPlugin {
         setupLog();
 
         // Register our events
-        PluginManager pm = getServer().getPluginManager();
+        PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(new PetitionPlayerListener(this), this);
 
         // EXAMPLE: Custom code, here we just output some info so we can check all is well
@@ -168,338 +178,288 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     private void performWarp(Player player, String[] args) {
-        Long id = Long.valueOf(args[1]);
-        Boolean moderator = false;
-        String name = "(Console)";
+        Long id = 0L;
+        try {
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
+        }
         if (player == null) {
             respond(player, "[Pe] That would be a neat trick.");
             return;
-        } else {
-               name = player.getName();
         }
-        if (player.hasPermission("petition.moderate")) {
-            moderator = true;
-        }
-        try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid() && (petition.isOpen() || moderator)) {
-                if (canWarpTo(player, petition)) {
-                    respond(player, "[Pe] §7" + petition.Header(getServer()));
-                    if (player.teleport(petition.getLocation(getServer()))) {
-                        respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened");
-                        logger.info(name + " teleported to " + settings.get("single").toLowerCase() + id);
-                    } else {
-                        respond(player, "[Pe] §7Teleport failed");
-                        logger.info(name + " teleport to " + settings.get("single").toLowerCase() + id + " FAILED");
-                    }
+        String name = player.getName();
+        Boolean moderator = player.hasPermission("petition.moderate");
+        
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid() && (petition.isOpen() || moderator)) {
+            if (canWarpTo(player, petition)) {
+                respond(player, "[Pe] §7" + petition.getHeader());
+                if (player.teleport(petition.getLocation())) {
+                    respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened");
+                    logger.info(name + " teleported to " + settings.get("single").toLowerCase() + id);
                 } else {
-                    logger.info("[Pe] Access to warp to #" + id + " denied for " + name);
-                    respond(player, "§4[Pe] Access denied.");
+                    respond(player, "[Pe] §7Teleport failed");
+                    logger.info(name + " teleport to " + settings.get("single").toLowerCase() + id + " FAILED");
                 }
             } else {
-                respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
+                logger.info("[Pe] Access to warp to #" + id + " denied for " + name);
+                respond(player, "§4[Pe] Access denied.");
             }
-        }
-        finally {
-            releaseLock(id, player);
+        } else {
+            respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
     private void performOpen(Player player, String[] args) {
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
+        String name = player != null ? player.getName() : CONSOLE_NAME;
+        String title = "";
+        Integer index = 1;
+        while (index < args.length) {
+            title = title.concat(" " + args[index]);
+            index++;
         }
-        try {
-            String title = "";
-            Integer index = 1;
-            while (index < args.length) {
-                title = title.concat(" " + args[index]);
-                index++;
-            }
-            if (title.length() > 0) {
-                title = title.substring(1);
-            }
-            PetitionObject petition = storage.create(player, title);
-            Long id = petition.getId();
-            if (petition.isValid()) {
-                respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.ID() + "§7. (Use '/petition' to manage it)");
-                String[] except = { petition.Owner() };
-                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + petition.ID() + "§7 opened by " + name + ": " + title, except);
-                logger.info(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
-                actionLog.logAction(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
-            } else {
-                respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
-                System.out.println("[Pe] ERROR: PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
-            }
+        if (title.length() > 0) {
+            title = title.substring(1);
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        PetitionObject petition = storage.create(player, title);
+        Long id = petition.getId();
+        if (petition.isValid()) {
+            respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.getId() + "§7. (Use '/petition' to manage it)");
+            String[] except = { petition.getOwner() };
+            notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + petition.getId() + "§7 opened by " + name + ": " + title, except);
+            logger.info(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
+            actionLog.logAction(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
+        } else {
+            respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
+            System.out.println("[Pe] ERROR: PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
         }
     }
 
     private void performComment(Player player, String[] args) {
-        Long id = Long.valueOf(args[1]);
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
-        }
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
-        }
+        Long id = 0L;
         try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid() && petition.isOpen()) {
-                if (petition.ownedBy(player) || moderator) {
-                    String message = "";
-                    Integer index = 2;
-                    while (index < args.length) {
-                        message = message.concat(" " + args[index]);
-                        index++;
-                    }
-                    if (message.length() > 0) {
-                        message = message.substring(1);
-                    }
-                    // Notify
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was updated: " + message);
-                    notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been updated by " + name + ".");
-                    String[] except = { petition.Owner(), petition.Assignee() };
-                    notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
-                    storage.comment(petition, player, message);
-                    logger.info(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                    actionLog.logAction(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                } else {
-                    logger.info("[Pe] Access to comment on #" + id + " denied for " + name);
-                }
-            } else {
-                respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
-            }
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
         }
-        finally {
-            releaseLock(id, player);
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid() && petition.isOpen()) {
+            if (petition.isOwner(player) || moderator) {
+                String message = "";
+                Integer index = 2;
+                while (index < args.length) {
+                    message = message.concat(" " + args[index]);
+                    index++;
+                }
+                if (message.length() > 0) {
+                    message = message.substring(1);
+                }
+                // Notify
+                notifyNamedPlayer(petition.getOwner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was updated: " + message);
+                notifyNamedPlayer(petition.getAssignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been updated by " + name + ".");
+                String[] except = { petition.getOwner(), petition.getAssignee() };
+                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 comment added by " + name + ".", except);
+                storage.comment(petition, player, message);
+                logger.info(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                actionLog.logAction(name + " commented " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+            } else {
+                logger.info("[Pe] Access to comment on #" + id + " denied for " + name);
+            }
+        } else {
+            respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
     private void performClose(Player player, String[] args) {
-        Long id = Long.valueOf(args[1]);
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
-        }
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
-        }
+        Long id = 0L;
         try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid() && petition.isOpen()) {
-                if (petition.ownedBy(player) || moderator) {
-                    String message = "";
-                    Integer index = 2;
-                    while (index < args.length) {
-                        message = message.concat(" " + args[index]);
-                        index++;
-                    }
-                    if (message.length() > 0) {
-                        message = message.substring(1);
-                    }
-                    // Notify
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was closed. " + message);
-                    notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed by " + name + ".");
-                    String[] except = { petition.Owner(), petition.Assignee() };
-                    // Implement 'notify-all-on-close'
-                    if (Boolean.parseBoolean(settings.get("single"))) {
-                        notifyAll("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed.", except);
-                    } else {
-                        notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed. " + message, except);
-                    }
-                    storage.close(petition, player, message);
-                    logger.info(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                    actionLog.logAction(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                } else {
-                    logger.info("[Pe] Access to close #" + id + " denied for " + name);
-                }
-            } else {
-                respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
-            }
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
         }
-        finally {
-            releaseLock(id, player);
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid() && petition.isOpen()) {
+            if (petition.isOwner(player) || moderator) {
+                String message = "";
+                Integer index = 2;
+                while (index < args.length) {
+                    message = message.concat(" " + args[index]);
+                    index++;
+                }
+                if (message.length() > 0) {
+                    message = message.substring(1);
+                }
+                // Notify
+                notifyNamedPlayer(petition.getOwner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was closed. " + message);
+                notifyNamedPlayer(petition.getAssignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed by " + name + ".");
+                String[] except = { petition.getOwner(), petition.getAssignee() };
+                // Implement 'notify-all-on-close'
+                if (Boolean.parseBoolean(settings.get("single"))) {
+                    notifyAll("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed.", except);
+                } else {
+                    notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was closed. " + message, except);
+                }
+                storage.close(petition, player, message);
+                logger.info(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                actionLog.logAction(name + " closed " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+            } else {
+                logger.info("[Pe] Access to close #" + id + " denied for " + name);
+            }
+        } else {
+            respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
     private void performReopen(Player player, String[] args) {
-        Long id = Long.valueOf(args[1]);
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
-        }
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
-        }
+        Long id = 0L;
         try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid() && petition.isClosed()) {
-                if (moderator) {
-                    String message = "";
-                    Integer index = 2;
-                    while (index < args.length) {
-                        message = message.concat(" " + args[index]);
-                        index++;
-                    }
-                    if (message.length() > 0) {
-                        message = message.substring(1);
-                    }
-                    // Notify
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was reopened. " + message);
-                    notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened by " + name + ".");
-                    String[] except = { petition.Owner(), petition.Assignee() };
-                    notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
-                    storage.reopen(petition, player, message);
-                    logger.info(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                    actionLog.logAction(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
-                } else {
-                    logger.info("[Pe] Access to reopen #" + id + " denied for " + name);
-                }
-            } else {
-                respond(player, "§4[Pe] No closed " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
-            }
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
         }
-        finally {
-            releaseLock(id, player);
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid() && petition.isClosed()) {
+            if (moderator) {
+                String message = "";
+                Integer index = 2;
+                while (index < args.length) {
+                    message = message.concat(" " + args[index]);
+                    index++;
+                }
+                if (message.length() > 0) {
+                    message = message.substring(1);
+                }
+                // Notify
+                notifyNamedPlayer(petition.getOwner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 was reopened. " + message);
+                notifyNamedPlayer(petition.getAssignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened by " + name + ".");
+                String[] except = { petition.getOwner(), petition.getAssignee() };
+                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 was reopened. " + message, except);
+                storage.reopen(petition, player, message);
+                logger.info(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+                actionLog.logAction(name + " reopened " + settings.get("single").toLowerCase() + " #" + id + ". " + message);
+            } else {
+                logger.info("[Pe] Access to reopen #" + id + " denied for " + name);
+            }
+        } else {
+            respond(player, "§4[Pe] No closed " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
     private void performUnassign(Player player, String[] args) {
-        Long id = Long.valueOf(args[1]);
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
+        Long id = 0L;
+        try {
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
         }
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
-        }
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
         if (!moderator) {
             logger.info("[Pe] Access to unassign #" + id + " denied for " + name);
             respond(player, "§4[Pe] Only moderators may unassign "+settings.get("plural"));
             return;
         }
-        try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid() && petition.isOpen()) {
-                storage.unassign(petition, player);
-                // Notify
-                if (Boolean.parseBoolean(settings.get("notify-owner-on-unassign"))) {
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 has been unassigned.");
-                }
-                notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been unassigned from you by " + name + ".");
-                String[] except = { petition.Owner(), petition.Assignee() };
-                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except);
-                logger.info(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
-                actionLog.logAction(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
-            } else {
-                respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid() && petition.isOpen()) {
+            storage.unassign(petition, player);
+            // Notify
+            if (Boolean.parseBoolean(settings.get("notify-owner-on-unassign"))) {
+                notifyNamedPlayer(petition.getOwner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 has been unassigned.");
             }
-        }
-        finally {
-            releaseLock(id, player);
+            notifyNamedPlayer(petition.getAssignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been unassigned from you by " + name + ".");
+            String[] except = { petition.getOwner(), petition.getAssignee() };
+            notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 unassigned by " + name + ".", except);
+            logger.info(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
+            actionLog.logAction(name + " unassigned " + settings.get("single").toLowerCase() + " #" + id);
+        } else {
+            respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
     private void performAssign(Player player, String[] args) {
-        Long id = Long.valueOf(args[1]);
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
+        Long id = 0L;
+        try {
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
         }
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
-        }
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
         if (!moderator) {
             logger.info("[Pe] Access to assign #" + id + " denied for " + name);
             respond(player, "§4[Pe] Only moderators may assign "+settings.get("plural"));
             return;
         }
-        try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid() && petition.isOpen()) {
-                if (args.length == 3) {
-                    // Assign to named player
-                    storage.assign(petition, player, args[2]);
-                } else {
-                    // Assign to self
-                    storage.assign(petition, player, name);
-                }
-                // Notify
-                if (Boolean.parseBoolean(settings.get("notify-owner-on-assign"))) {
-                    notifyNamedPlayer(petition.Owner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 assigned to " + petition.Assignee() + ".");
-                }
-                notifyNamedPlayer(petition.Assignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to you by " + name + ".");
-                String[] except = { petition.Owner(), petition.Assignee() };
-                notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to " + petition.Assignee() + ".", except);
-                logger.info(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
-                actionLog.logAction(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.Assignee());
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid() && petition.isOpen()) {
+            if (args.length == 3) {
+                // Assign to named player
+                storage.assign(petition, player, args[2]);
             } else {
-                respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
+                // Assign to self
+                storage.assign(petition, player, name);
             }
-        }
-        finally {
-            releaseLock(id, player);
+            // Notify
+            if (Boolean.parseBoolean(settings.get("notify-owner-on-assign"))) {
+                notifyNamedPlayer(petition.getOwner(), "[Pe] §7Your " + settings.get("single").toLowerCase() + " §6#" + id + "§7 assigned to " + petition.getAssignee() + ".");
+            }
+            notifyNamedPlayer(petition.getAssignee(), "[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to you by " + name + ".");
+            String[] except = { petition.getOwner(), petition.getAssignee() };
+            notifyModerators("[Pe] §7" + settings.get("single") + " §6#" + id + "§7 has been assigned to " + petition.getAssignee() + ".", except);
+            logger.info(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.getAssignee());
+            actionLog.logAction(name + " assigned " + settings.get("single").toLowerCase() + " #" + id + " to " + petition.getAssignee());
+        } else {
+            respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
     private void performView(Player player, String[] args) {
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
-        }
-        String name = "(Console)";
-        if (player != null) {
-            name = player.getName();
-        }
-        Long id = Long.valueOf(args[1]);
+        Long id = 0L;
         try {
-            getLock(id, player);
-            PetitionObject petition = storage.load(id);
-            if (petition.isValid()) {
-                if (petition.ownedBy(player) || moderator) {
-                    respond(player, "[Pe] §7" + petition.Header(getServer()));
-                    for (PetitionComment line : petition.Log()) {
-                        respond(player, "[Pe] §6#" + petition.ID() + " §7" + line);
-                    }
-                } else {
-                    logger.info("[Pe] Access to view #" + id + " denied for " + name);
+            id = Long.valueOf(args[1]);
+        } catch (NumberFormatException e) {
+            respond(player, "[Pe] Syntax error.");
+            return;
+        }
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
+        PetitionObject petition = storage.load(id);
+        if (petition.isValid()) {
+            if (petition.isOwner(player) || moderator) {
+                respond(player, "[Pe] §7" + petition.getHeader());
+                for (PetitionComment line : petition.getLog()) {
+                    respond(player, "[Pe] §6#" + petition.getId() + " §7" + line);
                 }
             } else {
-                respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
+                logger.info("[Pe] Access to view #" + id + " denied for " + name);
             }
-        }
-        finally {
-            releaseLock(id, player);
+        } else {
+            respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
         }
     }
 
-    private void performList(Player player, String[] args) {
+    private void performList(final Player player, String[] args) {
         Integer count = 0;
-        Integer showing = 0;
         Integer limit = 10;
         Boolean include_offline = true;
         Boolean include_online = true;
         Boolean use_archive = false;
         Boolean sort_reverse = false;
         Boolean ignore_assigned = false;
-        Pattern pattern = null;
-        String filter = "";
+        String filter = null;
         if (args.length >= 2) {
             for (Integer index = 1; index < args.length; index++) {
                 if (args[index].equalsIgnoreCase("closed")) {
@@ -516,94 +476,63 @@ public class PetitionPlugin extends JavaPlugin {
                     limit = Integer.valueOf(args[index]);
                 } else {
                     filter = args[index];
-                    pattern = Pattern.compile(filter, Pattern.CASE_INSENSITIVE);
                 }
             }
         }
-        Boolean moderator = false;
-        if (player == null || player.hasPermission("petition.moderate")) {
-            moderator = true;
-        }
+        List<PetitionObject> petitions = storage.list(use_archive, filter);
+        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        if (!moderator) {
+            Iterables.removeIf(petitions, new Predicate<PetitionObject>() {
 
-        File dir;
-        if (use_archive) {
-            dir = new File(ARCHIVE_DIR);
-        } else {
-            dir = new File(BASE_DIR);
+                @Override
+                public boolean apply(PetitionObject petition)
+                {
+                    return !petition.isOwner(player);
+                }
+            });
         }
-        String[] filenames = dir.list();
-        // Sort the filenames in numerical order
-        // OMG there _has_ to be a more efficient way to do this...!
-        Comparator<String> numerical = new Comparator<String>() {
-            public int compare(final String o1, final String o2) {
-                // logger.info("Comparing " + o1 + " to " + o2);
-                String[] parts1 = o1.split("\\.");
-                String[] parts2 = o2.split("\\.");
-                Integer int1 = 0;
-                try {
-                    int1 = Integer.parseInt(parts1[0]);
-                }
-                catch (Exception e) {
-                }
-                Integer int2 = 0;
-                try {
-                    int2 = Integer.parseInt(parts2[0]);
-                }
-                catch (Exception e) {
-                }
-                // logger.info("Stripped values are " + int1 + " and " + int2);
-                if (int1 < int2) { return -1; }
-                if (int1 > int2) { return 1; }
-                return 0;
-            }
-        };
-        Arrays.sort(filenames, numerical);
         if (sort_reverse) {
-            filenames = reverseOrder(filenames);
+            petitions = Lists.reverse(petitions);
         }
+        if (ignore_assigned) {
+            Iterables.removeIf(petitions, new Predicate<PetitionObject>() {
 
-        if (filenames != null) {
-            for (String filename : filenames) {
-                if (filename.endsWith(".ticket")) {
-                    String[] parts = filename.split("['.']");
-                    Long id = Long.valueOf(parts[0]);
-                    try {
-                        getLock(id, player);
-                        PetitionObject petition = storage.load(id);
-                        if (petition.isValid() && (petition.ownedBy(player) || moderator)) {
-                            Boolean ignore = false;
-                            Player p = getServer().getPlayer(petition.Owner());
-                            if (p == null && !include_offline) {
-                                ignore = true;
-                            }
-                            if (p != null && !include_online) {
-                                ignore = true;
-                            }
-                            if (pattern != null) {
-                                Matcher matcher = pattern.matcher(petition.Header(getServer()));
-                                if (!matcher.find()) {
-                                    ignore = true;
-                                }
-                            }
-                            if (!petition.Assignee().matches("\\*") && ignore_assigned) {
-                                ignore = true;
-                            }
-                            if (!ignore) {
-                                if (count < limit) {
-                                    respond(player, "[Pe] " + petition.Header(getServer()));
-                                    showing++;
-                                }
-                                count++;
-                            }
-                        }
-                    }
-                    finally {
-                        releaseLock(id, player);
-                    }
+                @Override
+                public boolean apply(PetitionObject petition)
+                {
+                    return petition.isAssigned();
                 }
-            }
+            });
         }
-        respond(player, "[Pe] §7"+(use_archive?"Closed":"Open")+" " + settings.get("plural").toLowerCase() + (pattern==null?"":new StringBuilder(" matching ").append(filter).toString()) + ": " + count + " (Showing " + showing + ")");
+        if (include_online && !include_offline) {
+            Iterables.removeIf(petitions, new Predicate<PetitionObject>() {
+
+                @Override
+                public boolean apply(PetitionObject petition)
+                {
+                    return Bukkit.getPlayer(petition.getOwner()) != null;
+                }
+            });
+        }
+        if (include_offline && !include_online) {
+            Iterables.removeIf(petitions, new Predicate<PetitionObject>() {
+
+                @Override
+                public boolean apply(PetitionObject petition)
+                {
+                    return Bukkit.getPlayer(petition.getOwner()) == null;
+                }
+                
+            });
+        }
+        count = petitions.size();
+        if (limit > 0 && petitions.size() > limit) {
+            petitions = petitions.subList(0, limit);
+        }
+        for (PetitionObject petition : petitions) {
+            respond(player, "[Pe] " + petition.getHeader());
+        }
+        respond(player, "[Pe] §7"+(use_archive?"Closed":"Open")+" " + settings.get("plural").toLowerCase() + (filter==null?"":new StringBuilder(" matching ").append(filter).toString()) + ": " + count + " (Showing " + petitions.size() + ")");
     }
 
     private void performHelp(Player player) {
@@ -641,30 +570,6 @@ public class PetitionPlugin extends JavaPlugin {
         debugees.put(player, value);
     }
 
-    public synchronized boolean SetPetitionLock(Long id, String owner, Boolean release) {
-        if (!release) {
-            // Check for lingering lock by the same player
-            if (semaphores.containsKey(id) && semaphores.get(id).equals(owner)) {
-                logger.severe("[Pe] INTERNAL ERROR! Petition #" + id + " is ALREADY locked by " + semaphores.get(id));
-                logger.severe("[Pe] This was probably caused by a previous crash while accessing this petition.");
-                logger.severe("[Pe] Please report this issue to the plugin author.");
-                return true;
-            }
-            // Get lock
-            if (semaphores.containsKey(id)) {
-                logger.warning("[Pe] Denied " + owner + " lock on #" + id + "; currently locked by " + semaphores.get(id));
-            } else {
-                semaphores.put(id, owner);
-                return true;
-            }
-        } else if (semaphores.containsKey(id) && semaphores.get(id) == owner) {
-            // Release lock
-            semaphores.remove(id);
-            return true;
-        }
-        return false;
-    }
-
     public void setupLog() {
         actionLog = new ActionLog();
     }
@@ -684,7 +589,7 @@ public class PetitionPlugin extends JavaPlugin {
 
         settings.put("warp-requires-permission", "false");
         
-        settings.put("storage-type", "yaml");
+        settings.put("storage-type", "text");
         // Read the current file (if it exists)
         try {
             BufferedReader input =  new BufferedReader(new FileReader(CONFIG_FILE));
@@ -713,7 +618,7 @@ public class PetitionPlugin extends JavaPlugin {
             storage = new DbStorage(getDatabase());
             initDb();
         } else {
-            storage = new YamlStorage();
+            storage = new TextStorage();
         }
     }
 
@@ -759,7 +664,7 @@ public class PetitionPlugin extends JavaPlugin {
                 output.write("notify-owner-on-unassign=true" + newline);
                 output.write("notify-interval-seconds=300" + newline);
                 output.write("warp-requires-permission=false" + newline);
-                output.write("storage-type=yaml");
+                output.write("storage-type=text");
                 output.close();
                 logger.info("[Pe] Created config file '" + CONFIG_FILE + "'");
             } catch (Exception e) {
@@ -768,35 +673,12 @@ public class PetitionPlugin extends JavaPlugin {
         }
     }
 
-    private void getLock(Long id, Player player) {    
-        String name = "";
-        if (player != null) {
-            name = player.getName();
-        }
-        while (!SetPetitionLock(id, name, false)) {
-            try {
-                Thread.sleep(100);
-            }
-            catch (InterruptedException e) {
-                logger.warning("[Pe] Sleep interrupted while waiting for lock");
-            }
-        }
-    }
-
-    private void releaseLock(Long id, Player player) {
-        String name = "";
-        if (player != null) {
-            name = player.getName();
-        }
-           SetPetitionLock(id, name, true);
-    }
-
     private void notifyNamedPlayer(String name, String message) {
         // Ignore broken filenames -- should probably be improved
-        if (name.equals("") || name.equals("*") || name.equalsIgnoreCase("(Console)")) {
+        if (name.equals("") || name.equals("*") || name.equalsIgnoreCase(CONSOLE_NAME)) {
             return;
         }
-        Player[] players = getServer().getOnlinePlayers();
+        Player[] players = Bukkit.getOnlinePlayers();
         Boolean online = false;
         for (Player player: players) {
             if (player.getName().equalsIgnoreCase(name)) {
@@ -846,7 +728,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     public void notifyModerators(String message, String[] exceptlist) {
-        Player[] players = getServer().getOnlinePlayers();
+        Player[] players = Bukkit.getOnlinePlayers();
         for (Player player: players) {
             if (player.hasPermission("petition.moderate")) {
                 Boolean skip = false;
@@ -863,7 +745,7 @@ public class PetitionPlugin extends JavaPlugin {
     }
 
     public void notifyAll(String message, String[] exceptlist) {
-        Player[] players = getServer().getOnlinePlayers();
+        Player[] players = Bukkit.getOnlinePlayers();
         for (Player player: players) {
             Boolean skip = false;
             for (String except: exceptlist) {
@@ -957,7 +839,7 @@ public class PetitionPlugin extends JavaPlugin {
             return true;
         }
         // Player owns this petition?
-        if (!petition.ownedBy(player)) {
+        if (!petition.isOwner(player)) {
             return false;
         }
         // Check for limitations
@@ -969,31 +851,20 @@ public class PetitionPlugin extends JavaPlugin {
             return true;
         }
         // Our last chance is that the petition has been assigned
-        if (petition.Assignee().equals("*")) {
+        if (petition.getAssignee().equals("*")) {
             return false;
         }
         // It has been assigned, is that sufficient?
         if (player.hasPermission("petition.warp-to-own-assigned")) {
             return true;
         }
-        String[] except = { petition.Owner() };
-        notifyModerators("[Pe] " + player.getName() + " requested warp access to " + settings.get("single").toLowerCase() + " #" + petition.ID(), except);
+        String[] except = { petition.getOwner() };
+        notifyModerators("[Pe] " + player.getName() + " requested warp access to " + settings.get("single").toLowerCase() + " #" + petition.getId(), except);
         return false;
-    }
-
-    private String[] reverseOrder(String[] list) {
-        String[] newlist = new String[list.length];
-        Integer i = list.length-1;
-        for (String item : list) {
-            newlist[i] = item;
-            i--;
-        }
-        return newlist;
     }
 
     private void startNotifier() {
         Integer seconds = 0;
-        notifier = new NotifierThread(this);
         try {
             seconds = Integer.parseInt(settings.get("notify-interval-seconds"));
         }
@@ -1002,16 +873,15 @@ public class PetitionPlugin extends JavaPlugin {
             logger.warning("[Pe] Using default value (300)");
         }
         if (seconds > 0) {
-            notifier.setInterval(seconds);
-            notifier.start();
+            task = Bukkit.getScheduler().runTaskTimerAsynchronously(this, new NotifierThread(this), 0, seconds * TPS);
         } else {
             logger.info("[Pe] Notification thread disabled");
         }
     }
 
     private void stopNotifier() {
-        if (notifier != null) {
-            notifier.signalStop();
+        if (task != null) {
+            task.cancel();
         }
     }
 
