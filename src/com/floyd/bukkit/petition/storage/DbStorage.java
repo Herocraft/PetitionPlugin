@@ -120,4 +120,33 @@ public class DbStorage implements Storage
         }
     }
 
+    public void migrate(List<PetitionObject> petitions)
+    {
+        for (PetitionObject oldPetition : petitions) {
+            PetitionObject newPetition = database.createEntityBean(PetitionObject.class);
+            copy(oldPetition, newPetition);
+            database.save(newPetition);
+        }
+    }
+
+    private void copy(PetitionObject from, PetitionObject to)
+    {
+        to.setTimestamp(from.getTimestamp());
+        to.setOwner(from.getOwner());
+        to.setTitle(from.getTitle());
+        to.setWorld(from.getWorld());
+        to.setX(from.getX());
+        to.setY(from.getY());
+        to.setZ(from.getZ());
+        to.setPitch(from.getPitch());
+        to.setYaw(from.getYaw());
+        to.setAssignee(from.getAssignee());
+        for (PetitionComment fromComment : from.getLog()) {
+            PetitionComment toComment = database.createEntityBean(PetitionComment.class);
+            toComment.setMessage(fromComment.getMessage());
+            to.getLog().add(toComment);
+        }
+        to.setClosed(from.isClosed());
+    }
+
 }

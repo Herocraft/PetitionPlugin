@@ -126,6 +126,9 @@ public class PetitionPlugin extends JavaPlugin {
                         performList(player, args);
                         return true;
                     }
+                    if (args[0].equalsIgnoreCase("migrate")) {
+                        performMigration(player);
+                    }
                 }
                 if (args.length >= 2) {
                     // View
@@ -190,7 +193,7 @@ public class PetitionPlugin extends JavaPlugin {
             return;
         }
         String name = player.getName();
-        Boolean moderator = player.hasPermission("petition.moderate");
+        boolean moderator = player.hasPermission("petition.moderate");
         
         PetitionObject petition = storage.load(id);
         if (petition != null && petition.isValid() && (petition.isOpen() || moderator)) {
@@ -245,7 +248,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Syntax error.");
             return;
         }
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
         if (petition != null && petition.isValid() && petition.isOpen()) {
@@ -283,7 +286,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Syntax error.");
             return;
         }
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
         if (petition != null && petition.isValid() && petition.isOpen()) {
@@ -326,7 +329,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Syntax error.");
             return;
         }
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
         if (petition != null && petition.isValid() && petition.isClosed()) {
@@ -364,7 +367,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Syntax error.");
             return;
         }
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         if (!moderator) {
             logger.info("[Pe] Access to unassign #" + id + " denied for " + name);
@@ -396,7 +399,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Syntax error.");
             return;
         }
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         if (!moderator) {
             logger.info("[Pe] Access to assign #" + id + " denied for " + name);
@@ -434,7 +437,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Syntax error.");
             return;
         }
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
         if (petition != null && petition.isValid()) {
@@ -454,11 +457,11 @@ public class PetitionPlugin extends JavaPlugin {
     private void performList(final Player player, String[] args) {
         Integer count = 0;
         Integer limit = 10;
-        Boolean include_offline = true;
-        Boolean include_online = true;
-        Boolean use_archive = false;
-        Boolean sort_reverse = false;
-        Boolean ignore_assigned = false;
+        boolean include_offline = true;
+        boolean include_online = true;
+        boolean use_archive = false;
+        boolean sort_reverse = false;
+        boolean ignore_assigned = false;
         String filter = null;
         if (args.length >= 2) {
             for (Integer index = 1; index < args.length; index++) {
@@ -480,7 +483,7 @@ public class PetitionPlugin extends JavaPlugin {
             }
         }
         List<PetitionObject> petitions = storage.list(use_archive, filter);
-        Boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
         if (!moderator) {
             Iterables.removeIf(petitions, new Predicate<PetitionObject>() {
 
@@ -535,9 +538,29 @@ public class PetitionPlugin extends JavaPlugin {
         respond(player, "[Pe] §7"+(use_archive?"Closed":"Open")+" " + settings.get("plural").toLowerCase() + (filter==null?"":new StringBuilder(" matching ").append(filter).toString()) + ": " + count + " (Showing " + petitions.size() + ")");
     }
 
+    private void performMigration(Player player)
+    {
+        if (!(storage instanceof DbStorage)) {
+            respond(player, "§4[Pe] No database is setup for migration.");
+        }
+        boolean moderator = player == null || player.hasPermission("petition.moderate");
+        String name = player != null ? player.getName() : CONSOLE_NAME;
+        if (moderator) {
+            respond(player, "[Pe] Starting migration from text to db.");
+            DbStorage dbStorage = (DbStorage) storage;
+            TextStorage textStorage = new TextStorage();
+            dbStorage.migrate(textStorage.list(true, null));
+            dbStorage.migrate(textStorage.list(false, null));
+            respond(player, "[Pe] Migration done.");
+        } else {
+            logger.info("[Pe] Access to migration denied for " + name);
+            respond(player, "§4[Pe] Only moderators may migrate");
+        }
+    }
+
     private void performHelp(Player player) {
         String cmd = "pe";
-        Boolean moderator = false;
+        boolean moderator = false;
         if (player == null || player.hasPermission("petition.moderate")) {
             moderator = true;
         }
@@ -555,6 +578,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] §7/" + cmd + " assign <#> [<Operator>]");
             respond(player, "[Pe] §7/" + cmd + " unassign <#>");
             respond(player, "[Pe] §7/" + cmd + " reopen <#> [<Message>]");
+            respond(player, "[Pe] §7/" + cmd + " migrate");
         }
     }
 
@@ -679,7 +703,7 @@ public class PetitionPlugin extends JavaPlugin {
             return;
         }
         Player[] players = Bukkit.getOnlinePlayers();
-        Boolean online = false;
+        boolean online = false;
         for (Player player: players) {
             if (player.getName().equalsIgnoreCase(name)) {
                 player.sendMessage(message);
@@ -731,7 +755,7 @@ public class PetitionPlugin extends JavaPlugin {
         Player[] players = Bukkit.getOnlinePlayers();
         for (Player player: players) {
             if (player.hasPermission("petition.moderate")) {
-                Boolean skip = false;
+                boolean skip = false;
                 for (String except: exceptlist) {
                     if (player.getName().toLowerCase().equals(except.toLowerCase())) {
                         skip = true;
@@ -747,7 +771,7 @@ public class PetitionPlugin extends JavaPlugin {
     public void notifyAll(String message, String[] exceptlist) {
         Player[] players = Bukkit.getOnlinePlayers();
         for (Player player: players) {
-            Boolean skip = false;
+            boolean skip = false;
             for (String except: exceptlist) {
                 if (player.getName().toLowerCase().equals(except.toLowerCase())) {
                     skip = true;
@@ -805,7 +829,7 @@ public class PetitionPlugin extends JavaPlugin {
 
     // This method is invoked when showing help
     // Check if there are situations where this player can warp
-    private Boolean canWarpAtAll(Player player) {
+    private boolean canWarpAtAll(Player player) {
         // Check if this limit is enabled at all
         if (!Boolean.parseBoolean(settings.get("warp-requires-permission"))) {
             return true;
@@ -829,7 +853,7 @@ public class PetitionPlugin extends JavaPlugin {
 
     // This method is invoked ONLY when a player is attempting to warp to a petition location
     // Implements a set of rules for warp access
-    private Boolean canWarpTo(Player player, PetitionObject petition) {
+    private boolean canWarpTo(Player player, PetitionObject petition) {
         // Check who is asking
         if (player == null) {
             return true;    // Console
