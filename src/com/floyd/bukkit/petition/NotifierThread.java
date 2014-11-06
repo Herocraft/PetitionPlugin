@@ -19,7 +19,7 @@ public class NotifierThread implements Runnable {
     // This method is called when the thread runs
     @Override
     public void run() {
-        System.out.println("[Pe] NotifierThread started");
+        PetitionPlugin.logger.info("[Pe] NotifierThread started");
 
         // Count open petitions per player
         count.clear();
@@ -56,6 +56,6 @@ public class NotifierThread implements Runnable {
                 plugin.notifyModerators("[Pe] §7There are " + total + " open " + plugin.getSettings().get("plural").toLowerCase() + " waiting, use '/pe list' to review", except);
             }
         }
-        System.out.println("[Pe] NotifierThread stopped");
+        PetitionPlugin.logger.info("[Pe] NotifierThread stopped");
     }
 }

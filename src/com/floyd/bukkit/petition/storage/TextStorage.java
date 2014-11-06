@@ -32,7 +32,6 @@ public class TextStorage implements Storage
             return name.endsWith(".ticket");
         }
     };
-    private static final String CONSOLE_NAME = "(Console)";
     private static final String TICKET_FILE = PetitionPlugin.BASE_DIR + File.separator + "last_ticket_id.txt";
     private static final DateFormat DATE_FORMAT = new SimpleDateFormat("EEE MMM dd kk:mm:ss z yyyy");
     private final Map<Long, PetitionObject> cache = new ConcurrentHashMap<Long, PetitionObject>();
@@ -59,7 +58,7 @@ public class TextStorage implements Storage
     @Override
     public PetitionObject create(Player player, String newtitle) {
         PetitionObject petition = new PetitionObject(IssueUniqueTicketID(), player, newtitle);
-        cache.put(petition.id, petition);
+        cache.put(petition.getId(), petition);
         save(petition);
         return petition;
     }
@@ -73,10 +72,10 @@ public class TextStorage implements Storage
         // Look in the archive first
         File peFile = new File(PetitionPlugin.ARCHIVE_DIR + File.separator + String.valueOf(petitionId) + ".ticket");
         if (peFile.exists()) {
-            petition.closed = true;
+            petition.setClosed(true);
         }
         else {
-            petition.closed = false;
+            petition.setClosed(false);
             peFile = new File(PetitionPlugin.BASE_DIR + File.separator + String.valueOf(petitionId) + ".ticket");
         }
 
@@ -86,31 +85,31 @@ public class TextStorage implements Storage
             while ((line = input.readLine()) != null) {
                 // File consists of key=value pairs, parse it 
                 String[] parts = line.split("=", 2);
-                if (parts[0].equals("id")) { petition.id = Long.parseLong(parts[1]); }
-                if (parts[0].equals("timestamp")) { petition.timestamp = DATE_FORMAT.parse(parts[1]); }
-                if (parts[0].equals("owner")) { petition.owner = parts[1]; }
-                if (parts[0].equals("title")) { petition.title = parts[1]; }
-                if (parts[0].equals("world")) { petition.world = parts[1]; }
-                if (parts[0].equals("x")) { petition.x = Double.parseDouble(parts[1]); }
-                if (parts[0].equals("y")) { petition.y = Double.parseDouble(parts[1]); }
-                if (parts[0].equals("z")) { petition.z = Double.parseDouble(parts[1]); }
-                if (parts[0].equals("pitch")) { petition.pitch = Float.parseFloat(parts[1]); }
-                if (parts[0].equals("yaw")) { petition.yaw = Float.parseFloat(parts[1]); }
-                if (parts[0].equals("assignee")) { petition.assignee = parts[1]; }
-                if (parts[0].equals("log")) { petition.log.add(new PetitionComment(parts[1])); }
+                if (parts[0].equals("id")) { petition.setId(Long.parseLong(parts[1])); }
+                if (parts[0].equals("timestamp")) { petition.setTimestamp(DATE_FORMAT.parse(parts[1])); }
+                if (parts[0].equals("owner")) { petition.setOwner(parts[1]); }
+                if (parts[0].equals("title")) { petition.setTitle(parts[1]); }
+                if (parts[0].equals("world")) { petition.setWorld(parts[1]); }
+                if (parts[0].equals("x")) { petition.setX(Double.parseDouble(parts[1])); }
+                if (parts[0].equals("y")) { petition.setY(Double.parseDouble(parts[1])); }
+                if (parts[0].equals("z")) { petition.setZ(Double.parseDouble(parts[1])); }
+                if (parts[0].equals("pitch")) { petition.setPitch(Float.parseFloat(parts[1])); }
+                if (parts[0].equals("yaw")) { petition.setYaw(Float.parseFloat(parts[1])); }
+                if (parts[0].equals("assignee")) { petition.setAssignee(parts[1]); }
+                if (parts[0].equals("log")) { petition.getLog().add(new PetitionComment(parts[1])); }
             }
             input.close();
             synchronized(cache) {
-                if (cache.containsKey(petition.id)) {
-                    petition = cache.get(petition.id);
+                if (cache.containsKey(petition.getId())) {
+                    petition = cache.get(petition.getId());
                 }
                 else {
-                    cache.put(petition.id, petition);
+                    cache.put(petition.getId(), petition);
                 }
             }
         }
         catch (Exception e) {
-            System.out.println("[Pe] Error reading " + e.getLocalizedMessage());
+            PetitionPlugin.logger.severe("[Pe] Error reading " + e.getLocalizedMessage());
         }
 
         return petition;
@@ -165,25 +164,26 @@ public class TextStorage implements Storage
         }
 
         try {
-            File file = new File(new StringBuilder().append(petition.closed ? PetitionPlugin.ARCHIVE_DIR : PetitionPlugin.BASE_DIR).append(File.separator)
-                    .append(petition.id).append(".ticket").toString());
+            File file = new File(new StringBuilder().append(petition.isClosed() ? PetitionPlugin.ARCHIVE_DIR : PetitionPlugin.BASE_DIR).append(File.separator)
+                    .append(petition.getId()).append(".ticket").toString());
             BufferedWriter output = new BufferedWriter(new FileWriter(file));
-            output.write("id=" + String.valueOf(petition.id) + "\n");
-            output.write("timestamp=" + DATE_FORMAT.format(petition.timestamp = new Date()) + "\n");
-            output.write("owner=" + petition.owner + "\n");
-            output.write("title=" + petition.title + "\n");
-            output.write("world=" + petition.world + "\n");
-            output.write("x=" + String.valueOf(petition.x) + "\n");
-            output.write("y=" + String.valueOf(petition.y) + "\n");
-            output.write("z=" + String.valueOf(petition.z) + "\n");
-            output.write("pitch=" + String.valueOf(petition.pitch) + "\n");
-            output.write("yaw=" + String.valueOf(petition.yaw) + "\n");
-            output.write("assignee=" + petition.assignee + "\n");
-            for (PetitionComment entry : petition.log) {
+            output.write("id=" + String.valueOf(petition.getId()) + "\n");
+            petition.setTimestamp(new Date());
+            output.write("timestamp=" + DATE_FORMAT.format(petition.getTimestamp()) + "\n");
+            output.write("owner=" + petition.getOwner() + "\n");
+            output.write("title=" + petition.getTitle() + "\n");
+            output.write("world=" + petition.getWorld() + "\n");
+            output.write("x=" + String.valueOf(petition.getX()) + "\n");
+            output.write("y=" + String.valueOf(petition.getY()) + "\n");
+            output.write("z=" + String.valueOf(petition.getZ()) + "\n");
+            output.write("pitch=" + String.valueOf(petition.getPitch()) + "\n");
+            output.write("yaw=" + String.valueOf(petition.getYaw()) + "\n");
+            output.write("assignee=" + petition.getAssignee() + "\n");
+            for (PetitionComment entry : petition.getLog()) {
                 output.write("log=" + entry + "\n");
             }
             output.close();
-            cache.remove(petition.id);
+            cache.remove(petition.getId());
         }
         catch (Exception e) {
             PetitionPlugin.logger.severe("[Pe] " + e.getMessage());
@@ -194,9 +194,9 @@ public class TextStorage implements Storage
     public void assign(PetitionObject petition, Player player, String name)
     {
         synchronized (petition) {
-            String moderator = player != null ? player.getName() : CONSOLE_NAME;
-            petition.log.add(new PetitionComment("Assigned to " + name + " by " + moderator));
-            petition.assignee = name;
+            String moderator = player != null ? player.getName() : PetitionPlugin.CONSOLE_NAME;
+            petition.getLog().add(new PetitionComment("Assigned to " + name + " by " + moderator));
+            petition.setAssignee(name);
             save(petition);
         }
     }
@@ -205,9 +205,9 @@ public class TextStorage implements Storage
     public void unassign(PetitionObject petition, Player player)
     {
         synchronized (petition) {
-            String moderator = player != null ? player.getName() : CONSOLE_NAME;
-            petition.log.add(new PetitionComment("Unassigned by " + moderator));
-            petition.assignee = "*";
+            String moderator = player != null ? player.getName() : PetitionPlugin.CONSOLE_NAME;
+            petition.getLog().add(new PetitionComment("Unassigned by " + moderator));
+            petition.setAssignee("*");
             save(petition);
         }
     }
@@ -216,51 +216,42 @@ public class TextStorage implements Storage
     public void close(PetitionObject petition, Player player, String message)
     {
         synchronized(petition) {
-            String moderator = player != null ? player.getName() : CONSOLE_NAME;
+            String moderator = player != null ? player.getName() : PetitionPlugin.CONSOLE_NAME;
             if (StringUtils.isEmpty(message)) {
-                petition.log.add(new PetitionComment("Closed by " + moderator));
+                petition.getLog().add(new PetitionComment("Closed by " + moderator));
             }
             else {
-                petition.log.add(new PetitionComment("Closed by " + moderator + ": " + message));
+                petition.getLog().add(new PetitionComment("Closed by " + moderator + ": " + message));
             }
             save(petition);
-            File oldFile = new File(PetitionPlugin.BASE_DIR + File.separator + petition.id + ".ticket");
-            oldFile.renameTo(new File(PetitionPlugin.ARCHIVE_DIR + File.separator + petition.id + ".ticket"));
+            File oldFile = new File(PetitionPlugin.BASE_DIR + File.separator + petition.getId() + ".ticket");
+            oldFile.renameTo(new File(PetitionPlugin.ARCHIVE_DIR + File.separator + petition.getId() + ".ticket"));
         }
     }
 
     @Override
     public void reopen(PetitionObject petition, Player player, String message)
     {
-        String moderator = CONSOLE_NAME;
-        if (player != null) {
-            moderator = player.getName();
-        }
+        String moderator = player != null ? player.getName() : PetitionPlugin.CONSOLE_NAME;
         if (StringUtils.isEmpty(message)) {
-            petition.log.add(new PetitionComment("Reopened by " + moderator));
+            petition.getLog().add(new PetitionComment("Reopened by " + moderator));
         }
         else {
-            petition.log.add(new PetitionComment("Reopened by " + moderator + ": " + message));
+            petition.getLog().add(new PetitionComment("Reopened by " + moderator + ": " + message));
         }
         save(petition);
-        File oldFile = new File(PetitionPlugin.ARCHIVE_DIR + File.separator + petition.id + ".ticket");
-        oldFile.renameTo(new File(PetitionPlugin.BASE_DIR + File.separator + petition.id + ".ticket"));
+        File oldFile = new File(PetitionPlugin.ARCHIVE_DIR + File.separator + petition.getId() + ".ticket");
+        oldFile.renameTo(new File(PetitionPlugin.BASE_DIR + File.separator + petition.getId() + ".ticket"));
     }
 
     @Override
     public void comment(PetitionObject petition, Player player, String message)
     {
-        String moderator = CONSOLE_NAME;
-        if (player != null) {
-            moderator = player.getName();
+        if (StringUtils.isNotBlank(message)) {
+            String moderator = player != null ? player.getName() : PetitionPlugin.CONSOLE_NAME;
+            petition.getLog().add(new PetitionComment(moderator + ": " + message));
+            save(petition);
         }
-        if (StringUtils.isEmpty(message)) {
-            return;
-        }
-        else {
-            petition.log.add(new PetitionComment(moderator + ": " + message));
-        }
-        save(petition);
     }
 
     private synchronized Long IssueUniqueTicketID() {

@@ -57,7 +57,7 @@ public class PetitionPlugin extends JavaPlugin {
 
     public static final Logger logger = Logger.getLogger("Minecraft.PetitionPlugin");
 
-    private static final String CONSOLE_NAME = "(Console)";
+    public static final String CONSOLE_NAME = "(Console)";
     private static final int TPS = 20;
 
 //    public PetitionPlugin(PluginLoader pluginLoader, Server instance, PluginDescriptionFile desc, File folder, File plugin, ClassLoader cLoader) {
@@ -193,7 +193,7 @@ public class PetitionPlugin extends JavaPlugin {
         Boolean moderator = player.hasPermission("petition.moderate");
         
         PetitionObject petition = storage.load(id);
-        if (petition.isValid() && (petition.isOpen() || moderator)) {
+        if (petition != null && petition.isValid() && (petition.isOpen() || moderator)) {
             if (canWarpTo(player, petition)) {
                 respond(player, "[Pe] §7" + petition.getHeader());
                 if (player.teleport(petition.getLocation())) {
@@ -233,7 +233,7 @@ public class PetitionPlugin extends JavaPlugin {
             actionLog.logAction(name + " opened " + settings.get("single").toLowerCase() + " #" + id + ". " + title);
         } else {
             respond(player, "§4[Pe] There was an error creating your ticket, please try again later.");
-            System.out.println("[Pe] ERROR: PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
+            PetitionPlugin.logger.severe("[Pe] PetitionPlugin failed to create a ticket, please check that plugins/PetitionPlugin exists and is writeable!");
         }
     }
 
@@ -248,7 +248,7 @@ public class PetitionPlugin extends JavaPlugin {
         Boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
-        if (petition.isValid() && petition.isOpen()) {
+        if (petition != null && petition.isValid() && petition.isOpen()) {
             if (petition.isOwner(player) || moderator) {
                 String message = "";
                 Integer index = 2;
@@ -286,7 +286,7 @@ public class PetitionPlugin extends JavaPlugin {
         Boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
-        if (petition.isValid() && petition.isOpen()) {
+        if (petition != null && petition.isValid() && petition.isOpen()) {
             if (petition.isOwner(player) || moderator) {
                 String message = "";
                 Integer index = 2;
@@ -329,7 +329,7 @@ public class PetitionPlugin extends JavaPlugin {
         Boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
-        if (petition.isValid() && petition.isClosed()) {
+        if (petition != null && petition.isValid() && petition.isClosed()) {
             if (moderator) {
                 String message = "";
                 Integer index = 2;
@@ -372,7 +372,7 @@ public class PetitionPlugin extends JavaPlugin {
             return;
         }
         PetitionObject petition = storage.load(id);
-        if (petition.isValid() && petition.isOpen()) {
+        if (petition != null && petition.isValid() && petition.isOpen()) {
             storage.unassign(petition, player);
             // Notify
             if (Boolean.parseBoolean(settings.get("notify-owner-on-unassign"))) {
@@ -404,7 +404,7 @@ public class PetitionPlugin extends JavaPlugin {
             return;
         }
         PetitionObject petition = storage.load(id);
-        if (petition.isValid() && petition.isOpen()) {
+        if (petition != null && petition.isValid() && petition.isOpen()) {
             if (args.length == 3) {
                 // Assign to named player
                 storage.assign(petition, player, args[2]);
@@ -437,7 +437,7 @@ public class PetitionPlugin extends JavaPlugin {
         Boolean moderator = player == null || player.hasPermission("petition.moderate");
         String name = player != null ? player.getName() : CONSOLE_NAME;
         PetitionObject petition = storage.load(id);
-        if (petition.isValid()) {
+        if (petition != null && petition.isValid()) {
             if (petition.isOwner(player) || moderator) {
                 respond(player, "[Pe] §7" + petition.getHeader());
                 for (PetitionComment line : petition.getLog()) {
@@ -797,7 +797,7 @@ public class PetitionPlugin extends JavaPlugin {
             Matcher matcher = pattern.matcher(message);
             message = matcher.replaceAll("");
             // Print message to console
-            System.out.println(message);
+            PetitionPlugin.logger.info(message);
         } else {
             player.sendMessage(message);
         }

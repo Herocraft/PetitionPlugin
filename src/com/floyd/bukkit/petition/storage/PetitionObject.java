@@ -16,62 +16,60 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import com.floyd.bukkit.petition.PetitionPlugin;
+
 @Entity
 @Table(name = "pe_object")
 public class PetitionObject {
     @Id
-    Long id = 0L;
+    private Long id = 0L;
     @Version
-    Date timestamp;
-    String owner = "";
-    String title = "";
-    String world = "";
-    Double x = 0d;
-    Double y = 0d;
-    Double z = 0d;
-    Float pitch = 0.0f;
-    Float yaw = 0.0f;
-    String assignee = "*";
+    private Date timestamp;
+    private String owner = "";
+    private String title = "";
+    private String world = "";
+    private Double x = 0d;
+    private Double y = 0d;
+    private Double z = 0d;
+    private Float pitch = 0.0f;
+    private Float yaw = 0.0f;
+    private String assignee = "*";
     @OneToMany(cascade=CascadeType.ALL)
-    List<PetitionComment> log = new ArrayList<PetitionComment>();
-    boolean closed = false;
-
-    public PetitionObject()
-    {
-        // TODO Auto-generated constructor stub
-    }
+    private List<PetitionComment> log;
+    private boolean closed = false;
 
     // Create a new petition
-    public PetitionObject(Long newid, Player player, String newtitle) {
+    public PetitionObject()
+    {
+        timestamp = new Date();
+        owner = "(Console)";
+        world = "";
+        x = 64d;
+        y = 64d;
+        z = 64d;
+        pitch = 0f;
+        yaw = 0f;
+        log = new ArrayList<PetitionComment>();
+        closed = false;
+    }
+
+    public PetitionObject(Long id, Player player, String title) {
+        this();
+        this.id = id;
+        this.title = title;
+
         if (player != null) {
-            id = newid;
-            timestamp = new Date();
             owner = player.getName();
-            title = newtitle;
-            world = player.getLocation().getWorld().getName();
-            x = player.getLocation().getX();
-            y = player.getLocation().getY();
-            z = player.getLocation().getZ();
-            pitch = player.getLocation().getPitch();
-            yaw = player.getLocation().getYaw();
-            closed = false;
-        } else { 
-            id = newid;
-            timestamp = new Date();
-            owner = "(Console)";
-            title = newtitle;
-            world = "";
-            x = 64d;
-            y = 64d;
-            z = 64d;
-            pitch = 0f;
-            yaw = 0f;
-            closed = false;
+            setLocation(player.getLocation());
         }
     }
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public Date getTimestamp()
@@ -84,30 +82,110 @@ public class PetitionObject {
         this.timestamp = timestamp;
     }
 
-    // Return 'true' if this is a valid petition object
-    public boolean isValid() {
-        return (id != null && id != 0);
+    public String getOwner() {
+        return owner;
     }
 
-    public boolean isNotValid() {
-        return !isValid();
+    public void setOwner(String owner) {
+        this.owner = owner;
     }
 
-    public boolean isOpen() {
-        return !closed;
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getWorld() {
+        return world;    // World name
+    }
+
+    public void setWorld(String world) {
+        this.world = world;
+    }
+
+    public Double getX() {
+        return x;
+    }
+
+    public void setX(Double x) {
+        this.x = x;
+    }
+
+    public Double getY() {
+        return y;
+    }
+
+    public void setY(Double y) {
+        this.y = y;
+    }
+
+    public Double getZ() {
+        return z;
+    }
+
+    public void setZ(Double z) {
+        this.z = z;
+    }
+
+    public Float getPitch() {
+        return pitch;
+    }
+
+    public void setPitch(Float pitch) {
+        this.pitch = pitch;
+    }
+
+    public Float getYaw() {
+        return yaw;
+    }
+
+    public void setYaw(Float yaw) {
+        this.yaw = yaw;
+    }
+
+    public String getAssignee() {
+        return assignee;
+    }
+
+    public void setAssignee(String assignee) {
+        this.assignee = assignee;
+    }
+
+    public List<PetitionComment> getLog() {
+        return log;
+    }
+
+    public void setLog(List<PetitionComment> log) {
+        this.log = log;
     }
 
     public boolean isClosed() {
         return closed;
     }
 
+    public void setClosed(boolean closed) {
+        this.closed = closed;
+    }
+
+    public boolean isOpen() {
+        return !closed;
+    }
+
+    // Return 'true' if this is a valid petition object
+    public boolean isValid() {
+        return (id != null && id > 0);
+    }
+
+    public boolean isNotValid() {
+        return !isValid();
+    }
+
     public boolean isAssigned()
     {
         return assignee != null;
-    }
-
-    public String getOwner() {
-        return owner;
     }
 
     private String getFormattedOwner() {
@@ -118,14 +196,6 @@ public class PetitionObject {
         return player != null && getOwner().equalsIgnoreCase(player.getName());
     }
 
-    public String getTitle() {
-        return title;
-    }
-
-    public String getAssignee() {
-        return assignee;
-    }
-
     private String getFormattedAssignee() {
         return Bukkit.getPlayer(assignee) != null ? "§2+§f" + assignee : "§4ø§f" + assignee;
     }
@@ -134,18 +204,10 @@ public class PetitionObject {
         return "§6#" + getId() + " " + getFormattedOwner() + "§7 -> " + getFormattedAssignee() + "§7: " + getTitle() + " (" + getLog().size() + ")";
     }
 
-    public List<PetitionComment> getLog() {
-        return log;
-    }
-
-    public String getWorld() {
-        return world;    // World name
-    }
-
     public Location getLocation() {
         List<World> worlds = Bukkit.getWorlds();
         World normal = null;
-        System.out.println("Examining worlds");
+        PetitionPlugin.logger.info("Examining worlds");
         for (World w : worlds) {
             if (w.getName().equals(world)) {
                 return new Location(w, x, y, z, yaw, pitch);
@@ -156,5 +218,16 @@ public class PetitionObject {
         }
         // Use the first world if we can't find the right one
         return new Location(normal, x, y, z, yaw, pitch);
+    }
+
+    public void setLocation(Location location) {
+        if (location != null) {
+            world = location.getWorld().getName();
+            x = location.getX();
+            y = location.getY();
+            z = location.getZ();
+            pitch = location.getPitch();
+            yaw = location.getYaw();
+        }
     }
 }
