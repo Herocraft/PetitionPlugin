@@ -24,39 +24,31 @@ public class PetitionObject {
     @Id
     private Long id = 0L;
     @Version
-    private Date timestamp;
-    private String owner = "";
+    private Date timestamp = new Date();
+    private String owner = "(Console)";
     private String title = "";
     private String world = "";
+    private String server = "";
     private Double x = 0d;
-    private Double y = 0d;
+    private Double y = 64d;
     private Double z = 0d;
     private Float pitch = 0.0f;
     private Float yaw = 0.0f;
     private String assignee = "*";
     @OneToMany(cascade=CascadeType.ALL)
-    private List<PetitionComment> log;
+    private List<PetitionComment> log = new ArrayList<PetitionComment>();
     private boolean closed = false;
 
     // Create a new petition
     public PetitionObject()
     {
-        timestamp = new Date();
-        owner = "(Console)";
-        world = "";
-        x = 64d;
-        y = 64d;
-        z = 64d;
-        pitch = 0f;
-        yaw = 0f;
-        log = new ArrayList<PetitionComment>();
-        closed = false;
+        // TODO Auto-generated constructor stub
     }
 
-    public PetitionObject(Long id, Player player, String title) {
-        this();
+    public PetitionObject(Long id, Player player, String title, String server) {
         this.id = id;
         this.title = title;
+        this.server = server;
 
         if (player != null) {
             owner = player.getName();
@@ -104,6 +96,16 @@ public class PetitionObject {
 
     public void setWorld(String world) {
         this.world = world;
+    }
+
+    public String getServer()
+    {
+        return server;
+    }
+
+    public void setServer(String server)
+    {
+        this.server = server;
     }
 
     public Double getX() {
@@ -189,7 +191,7 @@ public class PetitionObject {
     }
 
     private String getFormattedOwner() {
-        return Bukkit.getPlayer(owner) != null ? "§2+§f" + owner : "§4ø§f" + owner;
+        return Bukkit.getPlayerExact(owner) != null ? "§2+§f" + owner : "§4ø§f" + owner;
     }
 
     public boolean isOwner(Player player) {
@@ -197,7 +199,7 @@ public class PetitionObject {
     }
 
     private String getFormattedAssignee() {
-        return Bukkit.getPlayer(assignee) != null ? "§2+§f" + assignee : "§4ø§f" + assignee;
+        return Bukkit.getPlayerExact(assignee) != null ? "§2+§f" + assignee : "§4ø§f" + assignee;
     }
 
     public String getHeader() {

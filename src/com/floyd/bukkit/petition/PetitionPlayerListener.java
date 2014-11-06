@@ -5,6 +5,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
+import com.floyd.bukkit.petition.storage.DbStorage;
+import com.floyd.bukkit.petition.storage.PetitionTeleport;
+
 /**
  * Handle events for all Player related events
  * @author FloydATC
@@ -21,6 +24,19 @@ public class PetitionPlayerListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+
+        if (plugin.getStorage() instanceof DbStorage) {
+            DbStorage dbStorage = (DbStorage) plugin.getStorage();
+            PetitionTeleport teleport = dbStorage.getTeleport(player);
+            if (teleport != null) {
+                if (plugin.getServerName().equals(teleport.getPetition().getServer())) {
+                    plugin.doTeleport(player, teleport.getPetition());
+                } else {
+                    plugin.respond(player, "[Pe] §7Teleport failed.");
+                }
+                dbStorage.deleteTeleport(teleport);
+            }
+        }
 
         // Play back messages stored in this player's maildir (if any)
         String[] messages = plugin.getMessages(player);

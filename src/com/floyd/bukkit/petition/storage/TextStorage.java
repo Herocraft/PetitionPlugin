@@ -56,8 +56,8 @@ public class TextStorage implements Storage
     }
 
     @Override
-    public PetitionObject create(Player player, String newtitle) {
-        PetitionObject petition = new PetitionObject(IssueUniqueTicketID(), player, newtitle);
+    public PetitionObject create(Player player, String newtitle, String server) {
+        PetitionObject petition = new PetitionObject(IssueUniqueTicketID(), player, newtitle, server);
         cache.put(petition.getId(), petition);
         save(petition);
         return petition;
@@ -89,6 +89,7 @@ public class TextStorage implements Storage
                 if (parts[0].equals("timestamp")) { petition.setTimestamp(DATE_FORMAT.parse(parts[1])); }
                 if (parts[0].equals("owner")) { petition.setOwner(parts[1]); }
                 if (parts[0].equals("title")) { petition.setTitle(parts[1]); }
+                if (parts[0].equals("server")) { petition.setTitle(parts[1]); }
                 if (parts[0].equals("world")) { petition.setWorld(parts[1]); }
                 if (parts[0].equals("x")) { petition.setX(Double.parseDouble(parts[1])); }
                 if (parts[0].equals("y")) { petition.setY(Double.parseDouble(parts[1])); }
@@ -172,6 +173,7 @@ public class TextStorage implements Storage
             output.write("timestamp=" + DATE_FORMAT.format(petition.getTimestamp()) + "\n");
             output.write("owner=" + petition.getOwner() + "\n");
             output.write("title=" + petition.getTitle() + "\n");
+            output.write("server=" + petition.getServer() + "\n");
             output.write("world=" + petition.getWorld() + "\n");
             output.write("x=" + String.valueOf(petition.getX()) + "\n");
             output.write("y=" + String.valueOf(petition.getY()) + "\n");

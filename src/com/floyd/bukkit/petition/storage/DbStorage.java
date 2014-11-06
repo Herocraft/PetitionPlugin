@@ -19,14 +19,14 @@ public class DbStorage implements Storage
     }
 
     @Override
-    public PetitionObject create(Player player, String title)
+    public PetitionObject create(Player player, String title, String server)
     {
         PetitionObject petition = database.createEntityBean(PetitionObject.class);
         petition.setTitle(title);
+        petition.setServer(server);
         if (player != null) {
             petition.setOwner(player.getName());
             petition.setLocation(player.getLocation());
-
         }
         database.save(petition);
         return petition;
@@ -117,6 +117,33 @@ public class DbStorage implements Storage
             comment.setMessage(moderator + ": " + message);
             petition.getLog().add(comment);
             database.save(petition);
+        }
+    }
+
+    public PetitionTeleport createTeleport(PetitionObject petition, Player player)
+    {
+        PetitionTeleport teleport = null;
+
+        if (player != null && petition != null) {
+            deleteTeleport(getTeleport(player));
+            teleport = database.createEntityBean(PetitionTeleport.class);
+            teleport.setPetition(petition);
+            teleport.setPlayerName(player.getName());
+            database.save(teleport);
+        }
+
+        return teleport;
+    }
+
+    public PetitionTeleport getTeleport(Player player)
+    {
+        return database.find(PetitionTeleport.class).where().eq("player_name", player.getName()).findUnique();
+    }
+
+    public void deleteTeleport(PetitionTeleport teleport)
+    {
+        if (teleport != null) {
+            database.delete(teleport);
         }
     }
 

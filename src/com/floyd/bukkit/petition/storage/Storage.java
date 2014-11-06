@@ -6,7 +6,7 @@ import org.bukkit.entity.Player;
 
 public interface Storage
 {
-    PetitionObject create(Player player, String newtitle);
+    PetitionObject create(Player player, String newtitle, String server);
     PetitionObject load(Long petitionId);
     List<PetitionObject> list(boolean isArchived, String filter);
     void assign(PetitionObject petition, Player player, String name);

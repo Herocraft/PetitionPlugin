@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +18,7 @@ import java.util.regex.Pattern;
 
 import javax.persistence.PersistenceException;
 
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -24,16 +27,22 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.floyd.bukkit.petition.storage.DbStorage;
 import com.floyd.bukkit.petition.storage.PetitionComment;
 import com.floyd.bukkit.petition.storage.PetitionObject;
+import com.floyd.bukkit.petition.storage.PetitionTeleport;
 import com.floyd.bukkit.petition.storage.Storage;
 import com.floyd.bukkit.petition.storage.TextStorage;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.io.ByteArrayDataInput;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 
 /**
 * Petition plugin for Bukkit
@@ -41,14 +50,16 @@ import com.google.common.collect.Lists;
 * @author FloydATC
 */
 
-public class PetitionPlugin extends JavaPlugin {
-    private BukkitTask task;
+public class PetitionPlugin extends JavaPlugin implements PluginMessageListener {
+    private BukkitTask notifierTask;
 
     private final Map<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
     private final Map<String, String> settings = new ConcurrentHashMap<String, String>();
 
-    Storage storage;
-    ActionLog actionLog;
+    private Storage storage;
+    private ActionLog actionLog;
+    private String serverName;
+    private Collection<String> serverNames;
 
     public static final String BASE_DIR = "plugins/PetitionPlugin";
     public static final String ARCHIVE_DIR = BASE_DIR + File.separator + "archive";
@@ -58,6 +69,8 @@ public class PetitionPlugin extends JavaPlugin {
     public static final Logger logger = Logger.getLogger("Minecraft.PetitionPlugin");
 
     public static final String CONSOLE_NAME = "(Console)";
+
+    private static final String BUNGEE_CORD_CHANNEL = "BungeeCord";
     private static final int TPS = 20;
 
 //    public PetitionPlugin(PluginLoader pluginLoader, Server instance, PluginDescriptionFile desc, File folder, File plugin, ClassLoader cLoader) {
@@ -85,6 +98,7 @@ public class PetitionPlugin extends JavaPlugin {
         setupStorage();
         startNotifier();
         setupLog();
+        setupBungee();
 
         // Register our events
         PluginManager pm = Bukkit.getPluginManager();
@@ -94,15 +108,6 @@ public class PetitionPlugin extends JavaPlugin {
         PluginDescriptionFile pdfFile = this.getDescription();
         logger.info("[Pe] " + pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
         
-    }
-
-    @Override
-    public List<Class<?>> getDatabaseClasses()
-    {
-        List<Class<?>> classes = super.getDatabaseClasses();
-        classes.add(PetitionObject.class);
-        classes.add(PetitionComment.class);
-        return classes;
     }
 
     @Override
@@ -180,6 +185,31 @@ public class PetitionPlugin extends JavaPlugin {
         return true;
     }
 
+    @Override
+    public void onPluginMessageReceived(String channel, Player player, byte[] message) {
+        if (!BUNGEE_CORD_CHANNEL.equals(channel)) {
+            return;
+        }
+
+        ByteArrayDataInput in = ByteStreams.newDataInput(message);
+        String subChannel = in.readUTF();
+
+        if ("GetServer".equals(subChannel)) {
+            serverName = in.readUTF();
+        } else if ("GetServers".equals(subChannel)) {
+            serverNames = Sets.newHashSet(in.readUTF().split(", "));
+        }
+    }
+
+    @Override
+    public List<Class<?>> getDatabaseClasses() {
+        List<Class<?>> classes = super.getDatabaseClasses();
+        classes.add(PetitionObject.class);
+        classes.add(PetitionComment.class);
+        classes.add(PetitionTeleport.class);
+        return classes;
+    }
+
     private void performWarp(Player player, String[] args) {
         Long id = 0L;
         try {
@@ -192,26 +222,55 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] That would be a neat trick.");
             return;
         }
-        String name = player.getName();
         boolean moderator = player.hasPermission("petition.moderate");
         
         PetitionObject petition = storage.load(id);
         if (petition != null && petition.isValid() && (petition.isOpen() || moderator)) {
             if (canWarpTo(player, petition)) {
                 respond(player, "[Pe] §7" + petition.getHeader());
-                if (player.teleport(petition.getLocation())) {
-                    respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened");
-                    logger.info(name + " teleported to " + settings.get("single").toLowerCase() + id);
+                if (serverName != null) {
+                    if (serverName.equals(petition.getServer())) {
+                        doTeleport(player, petition);
+                    } else {
+                        if (storage instanceof DbStorage) {
+                            if (serverNames.contains(petition.getServer())) {
+                                DbStorage dbStorage = (DbStorage) storage;
+                                dbStorage.createTeleport(petition, player);
+                                connectServer(player, petition.getServer());
+                            } else {
+                                respond(player, "§4[Pe] Destination server not found.");
+                            }
+                        } else {
+                            respond(player, "§4[Pe] Cross-server teleport requires db storage.");
+                        }
+                    }
                 } else {
-                    respond(player, "[Pe] §7Teleport failed");
-                    logger.info(name + " teleport to " + settings.get("single").toLowerCase() + id + " FAILED");
+                    doTeleport(player, petition);
                 }
             } else {
-                logger.info("[Pe] Access to warp to #" + id + " denied for " + name);
+                logger.info("[Pe] Access to warp to #" + id + " denied for " + player.getName());
                 respond(player, "§4[Pe] Access denied.");
             }
         } else {
             respond(player, "§4[Pe] No open " + settings.get("single").toLowerCase() + " #" + args[1] + " found.");
+        }
+    }
+
+    private void connectServer(Player player, String server)
+    {
+        ByteArrayDataOutput connectRequest = ByteStreams.newDataOutput();
+        connectRequest.writeUTF("Connect");   
+        connectRequest.writeUTF(server);
+        player.sendPluginMessage(this, "BungeeCord", connectRequest.toByteArray());
+    }
+
+    public void doTeleport(Player player, PetitionObject petition) {
+        if (player.teleport(petition.getLocation())) {
+            respond(player, "[Pe] §7Teleporting you to where the " + settings.get("single").toLowerCase() + " was opened");
+            logger.info(player.getName() + " teleported to " + settings.get("single").toLowerCase() + petition.getId());
+        } else {
+            respond(player, "[Pe] §7Teleport failed.");
+            logger.info(player.getName() + " teleport to " + settings.get("single").toLowerCase() + petition.getId() + " FAILED");
         }
     }
 
@@ -226,7 +285,7 @@ public class PetitionPlugin extends JavaPlugin {
         if (title.length() > 0) {
             title = title.substring(1);
         }
-        PetitionObject petition = storage.create(player, title);
+        PetitionObject petition = storage.create(player, title, serverName);
         Long id = petition.getId();
         if (petition.isValid()) {
             respond(player, "[Pe] §7Thank you, your ticket is §6#" + petition.getId() + "§7. (Use '/petition' to manage it)");
@@ -443,8 +502,10 @@ public class PetitionPlugin extends JavaPlugin {
         if (petition != null && petition.isValid()) {
             if (petition.isOwner(player) || moderator) {
                 respond(player, "[Pe] §7" + petition.getHeader());
-                for (PetitionComment line : petition.getLog()) {
-                    respond(player, "[Pe] §6#" + petition.getId() + " §7" + line);
+                for (PetitionComment comment : petition.getLog()) {
+                    if (StringUtils.isNotBlank(comment.getMessage())) {
+                        respond(player, "[Pe] §6#" + petition.getId() + " §7" + comment);
+                    }
                 }
             } else {
                 logger.info("[Pe] Access to view #" + id + " denied for " + name);
@@ -513,7 +574,7 @@ public class PetitionPlugin extends JavaPlugin {
                 @Override
                 public boolean apply(PetitionObject petition)
                 {
-                    return Bukkit.getPlayer(petition.getOwner()) != null;
+                    return Bukkit.getPlayerExact(petition.getOwner()) != null;
                 }
             });
         }
@@ -523,7 +584,7 @@ public class PetitionPlugin extends JavaPlugin {
                 @Override
                 public boolean apply(PetitionObject petition)
                 {
-                    return Bukkit.getPlayer(petition.getOwner()) == null;
+                    return Bukkit.getPlayerExact(petition.getOwner()) == null;
                 }
                 
             });
@@ -594,8 +655,37 @@ public class PetitionPlugin extends JavaPlugin {
         debugees.put(player, value);
     }
 
-    public void setupLog() {
+    private void setupLog() {
         actionLog = new ActionLog();
+    }
+
+    private void setupBungee()
+    {
+        serverName = "";
+        serverNames = Collections.emptyList();
+
+        Bukkit.getMessenger().registerOutgoingPluginChannel(this, BUNGEE_CORD_CHANNEL);
+        Bukkit.getMessenger().registerIncomingPluginChannel(this, BUNGEE_CORD_CHANNEL, this);
+        final PetitionPlugin instance = this;
+        Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
+
+            @Override
+            public void run()
+            {
+                Player player = Iterables.getFirst(Lists.newArrayList(Bukkit.getOnlinePlayers()), null);
+                if (player != null) {
+                    if (StringUtils.isEmpty(serverName)) {
+                        ByteArrayDataOutput getServer = ByteStreams.newDataOutput();
+                        getServer.writeUTF("GetServer");
+                        player.sendPluginMessage(instance, BUNGEE_CORD_CHANNEL, getServer.toByteArray());
+                    }
+
+                    ByteArrayDataOutput getServers = ByteStreams.newDataOutput();
+                    getServers.writeUTF("GetServers");
+                    player.sendPluginMessage(instance, BUNGEE_CORD_CHANNEL, getServers.toByteArray());
+                }
+            }
+        }, 20, 20);        
     }
 
     private void loadSettings() {
@@ -814,7 +904,7 @@ public class PetitionPlugin extends JavaPlugin {
         return messages;
     }
 
-    private void respond(Player player, String message) {
+    void respond(Player player, String message) {
         if (player == null) {
             // Strip color codes
             Pattern pattern = Pattern.compile("\\§[0-9a-f]");
@@ -897,15 +987,15 @@ public class PetitionPlugin extends JavaPlugin {
             logger.warning("[Pe] Using default value (300)");
         }
         if (seconds > 0) {
-            task = Bukkit.getScheduler().runTaskTimerAsynchronously(this, new NotifierThread(this), 0, seconds * TPS);
+            notifierTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, new NotifierThread(this), 0, seconds * TPS);
         } else {
             logger.info("[Pe] Notification thread disabled");
         }
     }
 
     private void stopNotifier() {
-        if (task != null) {
-            task.cancel();
+        if (notifierTask != null) {
+            notifierTask.cancel();
         }
     }
 
@@ -915,5 +1005,13 @@ public class PetitionPlugin extends JavaPlugin {
 
     public Map<String, String> getSettings() {
         return settings;
+    }
+
+    public String getServerName() {
+        return serverName;
+    }
+
+    public Collection<String> getServerNames() {
+        return serverNames;
     }
 }

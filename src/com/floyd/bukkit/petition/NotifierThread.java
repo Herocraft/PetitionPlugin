@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.floyd.bukkit.petition.storage.PetitionObject;
@@ -37,7 +38,7 @@ public class NotifierThread implements Runnable {
         for (String name : count.keySet()) {
             Integer found = count.get(name);
             total = total + found;
-            Player p = plugin.getServer().getPlayer(name);
+            Player p = Bukkit.getPlayerExact(name);
             if (p != null) {
                 if (found == 1) {
                     p.sendMessage("[Pe] §7You have 1 open " + plugin.getSettings().get("single").toLowerCase() + " waiting, use '/pe list' to review");
