@@ -543,9 +543,9 @@ public class PetitionPlugin extends JavaPlugin {
         if (!(storage instanceof DbStorage)) {
             respond(player, "§4[Pe] No database is setup for migration.");
         }
-        boolean moderator = player == null || player.hasPermission("petition.moderate");
+        boolean isOp = player == null || player.isOp();
         String name = player != null ? player.getName() : CONSOLE_NAME;
-        if (moderator) {
+        if (isOp) {
             respond(player, "[Pe] Starting migration from text to db.");
             DbStorage dbStorage = (DbStorage) storage;
             TextStorage textStorage = new TextStorage();
@@ -554,7 +554,7 @@ public class PetitionPlugin extends JavaPlugin {
             respond(player, "[Pe] Migration done.");
         } else {
             logger.info("[Pe] Access to migration denied for " + name);
-            respond(player, "§4[Pe] Only moderators may migrate");
+            respond(player, "§4[Pe] Only ops may migrate");
         }
     }
 
