@@ -11,6 +11,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.Version;
 
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -203,7 +204,8 @@ public class PetitionObject {
     }
 
     public String getHeader() {
-        return "§6#" + getId() + " " + getFormattedOwner() + "§7 -> " + getFormattedAssignee() + "§7: " + getTitle() + " (" + getLog().size() + ")";
+        int logSize = getLog().size() == 1 && StringUtils.isEmpty(getLog().get(0).getMessage()) ? 0 : getLog().size(); 
+        return "§6#" + getId() + " " + getFormattedOwner() + "§7 -> " + getFormattedAssignee() + "§7: " + getTitle() + " (" + logSize + ")";
     }
 
     public Location getLocation() {
