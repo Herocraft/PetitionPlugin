@@ -60,6 +60,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
     private ActionLog actionLog;
     private String serverName;
     private Collection<String> serverNames;
+    private Collection<String> playerList;
 
     public static final String BASE_DIR = "plugins/PetitionPlugin";
     public static final String ARCHIVE_DIR = BASE_DIR + File.separator + "archive";
@@ -198,6 +199,8 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
             serverName = in.readUTF();
         } else if ("GetServers".equals(subChannel)) {
             serverNames = Sets.newHashSet(in.readUTF().split(", "));
+        } else if ("PlayerList".equals(subChannel)) {
+            playerList = Sets.newHashSet(in.readUTF().split(", "));
         }
     }
 
@@ -574,7 +577,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
                 @Override
                 public boolean apply(PetitionObject petition)
                 {
-                    return Bukkit.getPlayerExact(petition.getOwner()) == null;
+                    return Bukkit.getPlayerExact(petition.getOwner()) == null && !playerList.contains(petition.getOwner());
                 }
             });
         }
@@ -584,7 +587,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
                 @Override
                 public boolean apply(PetitionObject petition)
                 {
-                    return Bukkit.getPlayerExact(petition.getOwner()) != null;
+                    return Bukkit.getPlayerExact(petition.getOwner()) != null || playerList.contains(petition.getOwner());
                 }
                 
             });
@@ -663,6 +666,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
     {
         serverName = "";
         serverNames = Collections.emptyList();
+        playerList = Collections.emptyList();
 
         Bukkit.getMessenger().registerOutgoingPluginChannel(this, BUNGEE_CORD_CHANNEL);
         Bukkit.getMessenger().registerIncomingPluginChannel(this, BUNGEE_CORD_CHANNEL, this);
@@ -683,9 +687,14 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
                     ByteArrayDataOutput getServers = ByteStreams.newDataOutput();
                     getServers.writeUTF("GetServers");
                     player.sendPluginMessage(instance, BUNGEE_CORD_CHANNEL, getServers.toByteArray());
+
+                    ByteArrayDataOutput playerList = ByteStreams.newDataOutput();
+                    playerList.writeUTF("PlayerList");
+                    playerList.writeUTF("ALL");
+                    player.sendPluginMessage(instance, BUNGEE_CORD_CHANNEL, playerList.toByteArray());
                 }
             }
-        }, 20, 20);        
+        }, 20, 20);
     }
 
     private void loadSettings() {
