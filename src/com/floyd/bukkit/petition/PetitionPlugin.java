@@ -574,7 +574,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
                 @Override
                 public boolean apply(PetitionObject petition)
                 {
-                    return Bukkit.getPlayerExact(petition.getOwner()) != null;
+                    return Bukkit.getPlayerExact(petition.getOwner()) == null;
                 }
             });
         }
@@ -584,7 +584,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
                 @Override
                 public boolean apply(PetitionObject petition)
                 {
-                    return Bukkit.getPlayerExact(petition.getOwner()) == null;
+                    return Bukkit.getPlayerExact(petition.getOwner()) != null;
                 }
                 
             });
