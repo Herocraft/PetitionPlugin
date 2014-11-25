@@ -200,6 +200,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
         } else if ("GetServers".equals(subChannel)) {
             serverNames = Sets.newHashSet(in.readUTF().split(", "));
         } else if ("PlayerList".equals(subChannel)) {
+            String server = in.readUTF();
             playerList = Sets.newHashSet(in.readUTF().split(", "));
         }
     }
