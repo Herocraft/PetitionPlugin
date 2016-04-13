@@ -12,17 +12,17 @@
       <url>http://repo.bukkit.org/content/groups/public/</url>
     </repository>
   </repositories>
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>1.9-R0.1-SNAPSHOT</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.spigotmc</groupId>
-                    <artifactId>sneaky-throw</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+  <dependency>
+    <groupId>org.spigotmc</groupId>
+    <artifactId>spigot</artifactId>
+    <version>1.9-R0.1-SNAPSHOT</version>
+    <exclusions>
+        <exclusion>
+          <groupId>org.spigotmc</groupId>
+          <artifactId>sneaky-throw</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>mysql</groupId>
       <artifactId>mysql-connector-java</artifactId>
