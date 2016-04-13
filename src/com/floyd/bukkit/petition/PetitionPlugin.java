@@ -802,7 +802,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
         if (name.equals("") || name.equals("*") || name.equalsIgnoreCase(CONSOLE_NAME)) {
             return;
         }
-        Player[] players = Bukkit.getOnlinePlayers();
+        Collection<? extends Player> players = Bukkit.getOnlinePlayers();
         boolean online = false;
         for (Player player: players) {
             if (player.getName().equalsIgnoreCase(name)) {
@@ -852,7 +852,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
     }
 
     public void notifyModerators(String message, String[] exceptlist) {
-        Player[] players = Bukkit.getOnlinePlayers();
+        Collection<? extends Player> players = Bukkit.getOnlinePlayers();
         for (Player player: players) {
             if (player.hasPermission("petition.moderate")) {
                 boolean skip = false;
@@ -869,7 +869,7 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
     }
 
     public void notifyAll(String message, String[] exceptlist) {
-        Player[] players = Bukkit.getOnlinePlayers();
+        Collection<? extends Player> players = Bukkit.getOnlinePlayers();
         for (Player player: players) {
             boolean skip = false;
             for (String except: exceptlist) {
