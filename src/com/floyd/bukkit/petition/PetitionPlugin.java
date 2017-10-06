@@ -26,7 +26,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -50,7 +49,7 @@ import com.google.common.io.ByteStreams;
 * @author FloydATC
 */
 
-public class PetitionPlugin extends JavaPlugin implements PluginMessageListener {
+public class PetitionPlugin extends EbeanJavaPlugin implements EbeanPlugin, PluginMessageListener {
     private BukkitTask notifierTask;
 
     private final Map<Player, Boolean> debugees = new ConcurrentHashMap<Player, Boolean>();
@@ -109,6 +108,13 @@ public class PetitionPlugin extends JavaPlugin implements PluginMessageListener 
         PluginDescriptionFile pdfFile = this.getDescription();
         logger.info("[Pe] " + pdfFile.getName() + " version " + pdfFile.getVersion() + " is enabled!");
         
+    }
+
+    @Override
+    public void onLoad() {
+        if (!new File(this.getDataFolder(), "config.yml").exists()) {
+            this.saveDefaultConfig();
+        }
     }
 
     @Override
