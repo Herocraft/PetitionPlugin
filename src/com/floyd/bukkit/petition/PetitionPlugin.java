@@ -207,6 +207,9 @@ public class PetitionPlugin extends EbeanJavaPlugin implements EbeanPlugin, Plug
             serverNames = Sets.newHashSet(in.readUTF().split(", "));
         } else if ("PlayerList".equals(subChannel)) {
             String server = in.readUTF();
+            if (!server.equals("ALL")) { // We only send ALL, but something else may request a specific server. Let's not get confused.
+                return;
+            }
             playerList = Sets.newHashSet(in.readUTF().split(", "));
         }
     }
